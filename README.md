@@ -51,6 +51,7 @@ This tool sends HTTP requests directly to IP addresses with your target domain i
 - **IP Range**: Scan from start IP to end IP (e.g., `192.168.1.1` - `192.168.1.254`)
 - **CIDR Notation**: Scan entire subnets (e.g., `192.168.1.0/24`)
 - **Input File**: Load multiple IPs and CIDR ranges from a text file
+- **CIDR Mask Application**: Apply CIDR masks to single IPs in input files (e.g., `-i ips.txt -n /24`)
 
 ### Advanced Features
 - ⚡ **Multi-threaded scanning** for faster results
@@ -139,6 +140,22 @@ EOF
 
 # Aggressive scanning with 20 threads
 ./originfind -d example.com -i large-list.txt -j 20
+```
+
+#### Apply CIDR Mask to Input File IPs
+```bash
+# If you have individual IPs and want to scan their /24 subnets
+cat > single-ips.txt << EOF
+104.16.132.5
+104.17.84.12
+23.192.228.100
+EOF
+
+# Apply /24 mask to each IP (scans 3 full /24 subnets = 768 IPs total)
+./originfind -d example.com -i single-ips.txt -n /24 -j 15
+
+# Smaller subnet with /28 mask (16 IPs per entry)
+./originfind -d example.com -i single-ips.txt -n /28 -j 10
 ```
 
 #### Save Results and Show All Responses
@@ -231,6 +248,31 @@ Then run:
 ```bash
 ./originfind -d example.com -i targets.txt -j 10
 ```
+
+### 4. Input File with CIDR Mask
+Apply a CIDR mask to all single IPs in an input file. This is useful when you have a list of individual IPs and want to scan their surrounding subnets.
+
+**single-ips.txt:**
+```
+192.168.1.100
+10.0.0.50
+172.16.5.200
+```
+
+Apply /24 mask to each IP (scans entire /24 subnet for each):
+```bash
+# This will scan:
+# - 192.168.1.0/24 (256 IPs)
+# - 10.0.0.0/24 (256 IPs)
+# - 172.16.5.0/24 (256 IPs)
+./originfind -d example.com -i single-ips.txt -n /24 -j 10
+```
+
+**How it works:**
+- Single IPs in the file get the mask applied (e.g., `192.168.1.100` + `/24` = `192.168.1.0/24`)
+- Existing CIDR ranges in the file remain unchanged
+- Invalid IPs or formats are skipped with warnings
+- Network and broadcast addresses are automatically excluded
 
 ## 📊 CIDR Reference
 
