@@ -13,6 +13,7 @@ A powerful security analysis tool for discovering real origin server IPs hidden 
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Go Version](https://img.shields.io/badge/Go-1.16+-blue.svg)](https://golang.org/)
+[![Go Report Card](https://goreportcard.com/badge/github.com/jhaxce/originfind)](https://goreportcard.com/report/github.com/jhaxce/originfind)
 
 ## 📋 Table of Contents
 
@@ -82,8 +83,14 @@ sudo mv originfind /usr/local/bin/
 # Move originfind.exe to a directory in your PATH
 ```
 
-### Pre-built Binaries
-Download the latest release from the [Releases](https://github.com/jhaxce/originfind/releases) page.
+### Install with Go
+
+```bash
+# Install directly from GitHub (requires Go)
+go install github.com/jhaxce/originfind@latest
+
+# The binary will be in $GOPATH/bin or ~/go/bin
+```
 
 ## 📖 Usage
 
@@ -424,7 +431,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 📞 Support
 
 - 🐛 **Bug Reports**: [GitHub Issues](https://github.com/jhaxce/originfind/issues)
-- 💬 **Questions**: [GitHub Discussions](https://github.com/jhaxce/originfind/discussions)
 - 📧 **Security Issues**: Report privately via GitHub Security Advisories
 
 ---
