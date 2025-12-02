@@ -15,6 +15,7 @@ A powerful security analysis tool for discovering real origin server IPs hidden 
 [![Go Version](https://img.shields.io/badge/Go-1.16+-blue.svg)](https://golang.org/)
 [![Release](https://img.shields.io/github/v/release/jhaxce/originfind)](https://github.com/jhaxce/originfind/releases)
 [![Go Report Card](https://goreportcard.com/badge/github.com/jhaxce/originfind)](https://goreportcard.com/report/github.com/jhaxce/originfind)
+[![Coverage Status](https://coveralls.io/repos/github/jhaxce/originfind/badge.svg?branch=main)](https://coveralls.io/github/jhaxce/originfind?branch=main)
 [![Go Reference](https://pkg.go.dev/badge/github.com/jhaxce/originfind.svg)](https://pkg.go.dev/github.com/jhaxce/originfind)
 
 ## 📋 Table of Contents
