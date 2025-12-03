@@ -3,12 +3,13 @@ package main
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"os"
 	"runtime"
 	"strings"
 	"time"
+
+	"github.com/spf13/pflag"
 
 	"github.com/jhaxce/origindive/v3/internal/colors"
 	"github.com/jhaxce/origindive/v3/internal/version"
@@ -117,68 +118,54 @@ func main() {
 func parseFlags() *core.Config {
 	config := core.DefaultConfig()
 
-	// Config file flag (no short flag to avoid conflict with -c for connect-timeout)
+	// Config file flag
 	var configFile string
-	flag.StringVar(&configFile, "config", "", "Config file path (YAML)")
+	pflag.StringVar(&configFile, "config", "", "Config file path (YAML)")
 
 	// Update flag
-	doUpdate := flag.Bool("update", false, "Check and install updates")
+	doUpdate := pflag.Bool("update", false, "Check and install updates")
 
 	// Basic flags
-	flag.StringVar(&config.Domain, "d", "", "Target domain (required)")
-	flag.StringVar(&config.Domain, "domain", "", "Target domain (required)")
+	pflag.StringVarP(&config.Domain, "domain", "d", "", "Target domain (required)")
 
 	// IP range flags
-	flag.StringVar(&config.StartIP, "s", "", "Start IP address")
-	flag.StringVar(&config.StartIP, "start-ip", "", "Start IP address")
-	flag.StringVar(&config.EndIP, "e", "", "End IP address")
-	flag.StringVar(&config.EndIP, "end-ip", "", "End IP address")
-	flag.StringVar(&config.CIDR, "n", "", "CIDR notation (e.g., 192.168.1.0/24)")
-	flag.StringVar(&config.CIDR, "cidr", "", "CIDR notation")
-	flag.StringVar(&config.InputFile, "i", "", "Input file with IPs/CIDRs")
-	flag.StringVar(&config.InputFile, "input", "", "Input file")
+	pflag.StringVarP(&config.StartIP, "start-ip", "s", "", "Start IP address")
+	pflag.StringVarP(&config.EndIP, "end-ip", "e", "", "End IP address")
+	pflag.StringVarP(&config.CIDR, "cidr", "n", "", "CIDR notation (e.g., 192.168.1.0/24)")
+	pflag.StringVarP(&config.InputFile, "input", "i", "", "Input file with IPs/CIDRs")
 
 	// Performance flags
-	flag.IntVar(&config.Workers, "j", 10, "Number of parallel workers")
-	flag.IntVar(&config.Workers, "threads", 10, "Number of parallel workers")
+	pflag.IntVarP(&config.Workers, "threads", "j", 10, "Number of parallel workers")
 
 	// HTTP flags
-	flag.StringVar(&config.HTTPMethod, "m", "GET", "HTTP method")
-	flag.StringVar(&config.HTTPMethod, "method", "GET", "HTTP method")
+	pflag.StringVarP(&config.HTTPMethod, "method", "m", "GET", "HTTP method")
 	var timeout int
 	var connectTimeout int
-	flag.IntVar(&timeout, "t", 5, "HTTP timeout in seconds")
-	flag.IntVar(&timeout, "timeout", 5, "HTTP timeout")
-	flag.IntVar(&connectTimeout, "c", 3, "TCP connect timeout in seconds")
-	flag.IntVar(&connectTimeout, "connect-timeout", 3, "TCP connect timeout")
-	flag.StringVar(&config.CustomHeader, "H", "", "Custom header")
-	flag.BoolVar(&config.NoUserAgent, "no-ua", false, "Disable User-Agent header")
+	pflag.IntVarP(&timeout, "timeout", "t", 5, "HTTP timeout in seconds")
+	pflag.IntVarP(&connectTimeout, "connect-timeout", "c", 3, "TCP connect timeout in seconds")
+	pflag.StringVarP(&config.CustomHeader, "header", "H", "", "Custom header")
+	pflag.BoolVar(&config.NoUserAgent, "no-ua", false, "Disable User-Agent header")
 
 	// WAF filtering flags
-	flag.BoolVar(&config.SkipWAF, "skip-waf", false, "Skip known WAF/CDN IP ranges")
+	pflag.BoolVar(&config.SkipWAF, "skip-waf", false, "Skip known WAF/CDN IP ranges")
 	var skipProviders string
-	flag.StringVar(&skipProviders, "skip-providers", "", "Comma-separated list of providers to skip")
-	flag.BoolVar(&config.ShowSkipped, "show-skipped", false, "Display skipped IPs")
-	flag.BoolVar(&config.NoWAFUpdate, "no-waf-update", false, "Disable WAF database auto-update")
+	pflag.StringVar(&skipProviders, "skip-providers", "", "Comma-separated list of providers to skip")
+	pflag.BoolVar(&config.ShowSkipped, "show-skipped", false, "Display skipped IPs")
+	pflag.BoolVar(&config.NoWAFUpdate, "no-waf-update", false, "Disable WAF database auto-update")
 
 	// Output flags
-	flag.StringVar(&config.OutputFile, "o", "", "Output file")
-	flag.StringVar(&config.OutputFile, "output", "", "Output file")
+	pflag.StringVarP(&config.OutputFile, "output", "o", "", "Output file")
 	var format string
-	flag.StringVar(&format, "f", "text", "Output format (text|json|csv)")
-	flag.StringVar(&format, "format", "text", "Output format")
-	flag.BoolVar(&config.Quiet, "q", false, "Quiet mode")
-	flag.BoolVar(&config.Quiet, "quiet", false, "Quiet mode")
-	flag.BoolVar(&config.ShowAll, "a", false, "Show all responses")
-	flag.BoolVar(&config.ShowAll, "show-all", false, "Show all responses")
-	flag.BoolVar(&config.NoColor, "no-color", false, "Disable colored output")
-	flag.BoolVar(&config.NoProgress, "no-progress", false, "Disable progress bar")
+	pflag.StringVarP(&format, "format", "f", "text", "Output format (text|json|csv)")
+	pflag.BoolVarP(&config.Quiet, "quiet", "q", false, "Quiet mode")
+	pflag.BoolVarP(&config.ShowAll, "show-all", "a", false, "Show all responses")
+	pflag.BoolVar(&config.NoColor, "no-color", false, "Disable colored output")
+	pflag.BoolVar(&config.NoProgress, "no-progress", false, "Disable progress bar")
 
 	// Version flag
-	showVersion := flag.Bool("V", false, "Show version")
-	flag.BoolVar(showVersion, "version", false, "Show version")
+	showVersion := pflag.BoolP("version", "V", false, "Show version")
 
-	flag.Parse()
+	pflag.Parse()
 
 	// Handle update
 	if *doUpdate {
