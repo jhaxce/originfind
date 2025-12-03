@@ -11,7 +11,7 @@ assignees: ''
 
 ## Steps to Reproduce
 <!-- Exact steps to trigger the bug -->
-1. Run command: `./originfind ...`
+1. Run command: `./origindive ...`
 2. Observe behavior: ...
 3. Error occurs: ...
 
@@ -24,7 +24,7 @@ assignees: ''
 ## Command Used
 ```bash
 # Paste the exact command you ran
-./originfind -d example.com ...
+./origindive -d example.com ...
 ```
 
 ## Output/Error Message
@@ -35,7 +35,7 @@ assignees: ''
 ## Environment
 - **OS**: <!-- e.g., Windows 10, Ubuntu 22.04, macOS 13 -->
 - **Go Version**: <!-- run: go version -->
-- **originfind Version**: <!-- run: ./originfind -V -->
+- **origindive Version**: <!-- run: ./origindive -V -->
 - **Terminal**: <!-- e.g., PowerShell, bash, zsh, WSL2 -->
 
 ## Additional Context
@@ -43,5 +43,5 @@ assignees: ''
 
 ## Checklist
 - [ ] I've checked existing issues for duplicates
-- [ ] I'm using the latest version of originfind
+- [ ] I'm using the latest version of origindive
 - [ ] I've included the exact command and full error output

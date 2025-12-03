@@ -13,7 +13,7 @@ Only the latest release receives updates. Please upgrade to the most recent vers
 
 If you discover a security vulnerability, please report it by:
 
-1. **Opening a GitHub Issue** at https://github.com/jhaxce/originfind/issues
+1. **Opening a GitHub Issue** at https://github.com/jhaxce/origindive/issues
    - Label it as "security" if possible
    - Provide clear steps to reproduce
 
@@ -42,7 +42,7 @@ As an independent developer, I appreciate community contributions! If you can fi
 
 - Uses HTTP by default (not HTTPS)
 - TLS verification is disabled (intentional for testing)
-- Sends requests with "originfind" User-Agent by default
+- Sends requests with "origindive" User-Agent by default
 - High request rates possible with threading
 
 ## Legal Notice
@@ -56,4 +56,4 @@ The developer assumes no liability for misuse.
 
 ---
 
-**Questions?** Open an issue at https://github.com/jhaxce/originfind/issues
+**Questions?** Open an issue at https://github.com/jhaxce/origindive/issues

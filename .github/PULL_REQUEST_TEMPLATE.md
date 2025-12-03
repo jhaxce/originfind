@@ -27,18 +27,18 @@ Relates to #
 
 ### Build Test
 ```bash
-go build -o originfind originfind.go
+go build -o origindive cmd/origindive/main.go
 # Result: 
 ```
 
 ### Functional Tests
 ```bash
 # Test 1: Basic functionality
-./originfind -d example.com -n 192.168.1.0/28
+./origindive -d example.com -n 192.168.1.0/28
 # Result:
 
 # Test 2: Edge cases
-./originfind ...
+./origindive ...
 # Result:
 ```
 
@@ -58,7 +58,7 @@ go build -o originfind originfind.go
 - [ ] Updated README.md (if user-facing changes)
 - [ ] Updated CHANGELOG.md (added to [Unreleased] section)
 - [ ] Updated code comments/documentation
-- [ ] Updated usage/help text in originfind.go
+- [ ] Updated package documentation (if applicable)
 
 ## Code Quality
 <!-- Ensure your code meets quality standards -->

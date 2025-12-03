@@ -1,3 +1,5 @@
-module github.com/jhaxce/originfind
+module github.com/jhaxce/origindive/v3
 
-go 1.16
+go 1.23
+
+require gopkg.in/yaml.v3 v3.0.1 // indirect

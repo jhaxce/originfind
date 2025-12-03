@@ -19,7 +19,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.21'
+          go-version: '1.23'
 
       - name: Get version from tag
         id: version
@@ -30,20 +30,20 @@ jobs:
           VERSION=${{ steps.version.outputs.VERSION }}
           mkdir -p build dist
           
-          echo "Building originfind ${VERSION} for multiple platforms..."
+          echo "Building origindive ${VERSION} for multiple platforms..."
           
           # Function to create release package
           create_package() {
             local os=$1
             local arch=$2
             local binary_name=$3
-            local pkg_name="originfind-${VERSION}-${os}-${arch}"
+            local pkg_name="origindive-${VERSION}-${os}-${arch}"
             
             echo "Creating package: ${pkg_name}"
             mkdir -p "build/${pkg_name}"
             
             # Build binary
-            GOOS=${os} GOARCH=${arch} go build -ldflags="-s -w" -o "build/${pkg_name}/${binary_name}" originfind.go
+            GOOS=${os} GOARCH=${arch} go build -ldflags="-s -w" -o "build/${pkg_name}/${binary_name}" cmd/origindive/main.go
             
             # Copy documentation
             cp LICENSE "build/${pkg_name}/"
@@ -59,12 +59,12 @@ jobs:
           }
           
           # Build packages
-          create_package "windows" "amd64" "originfind.exe"
-          create_package "windows" "arm64" "originfind.exe"
-          create_package "linux" "amd64" "originfind"
-          create_package "linux" "arm64" "originfind"
-          create_package "darwin" "amd64" "originfind"
-          create_package "darwin" "arm64" "originfind"
+          create_package "windows" "amd64" "origindive.exe"
+          create_package "windows" "arm64" "origindive.exe"
+          create_package "linux" "amd64" "origindive"
+          create_package "linux" "arm64" "origindive"
+          create_package "darwin" "amd64" "origindive"
+          create_package "darwin" "arm64" "origindive"
           
           echo "Build complete!"
           ls -lh dist/
@@ -88,19 +88,19 @@ jobs:
             Download the zip package for your platform and extract it:
             
             ### Windows
-            - **Windows 64-bit (Intel/AMD)**: `originfind-${{ steps.version.outputs.VERSION }}-windows-amd64.zip`
-            - **Windows ARM64**: `originfind-${{ steps.version.outputs.VERSION }}-windows-arm64.zip`
+            - **Windows 64-bit (Intel/AMD)**: `origindive-${{ steps.version.outputs.VERSION }}-windows-amd64.zip`
+            - **Windows ARM64**: `origindive-${{ steps.version.outputs.VERSION }}-windows-arm64.zip`
             
             ### Linux
-            - **Linux 64-bit**: `originfind-${{ steps.version.outputs.VERSION }}-linux-amd64.zip`
-            - **Linux ARM64**: `originfind-${{ steps.version.outputs.VERSION }}-linux-arm64.zip`
+            - **Linux 64-bit**: `origindive-${{ steps.version.outputs.VERSION }}-linux-amd64.zip`
+            - **Linux ARM64**: `origindive-${{ steps.version.outputs.VERSION }}-linux-arm64.zip`
             
             ### macOS
-            - **macOS Intel**: `originfind-${{ steps.version.outputs.VERSION }}-darwin-amd64.zip`
-            - **macOS Apple Silicon (M1/M2/M3)**: `originfind-${{ steps.version.outputs.VERSION }}-darwin-arm64.zip`
+            - **macOS Intel**: `origindive-${{ steps.version.outputs.VERSION }}-darwin-amd64.zip`
+            - **macOS Apple Silicon (M1/M2/M3)**: `origindive-${{ steps.version.outputs.VERSION }}-darwin-arm64.zip`
             
             Each package includes:
-            - `originfind` or `originfind.exe` (binary)
+            - `origindive` or `origindive.exe` (binary)
             - `LICENSE` (MIT License)
             - `README.md` (Documentation)
             - `CHANGELOG.md` (Release Notes)
@@ -109,30 +109,30 @@ jobs:
             
             ```bash
             # Extract the zip
-            unzip originfind-${{ steps.version.outputs.VERSION }}-*.zip
-            cd originfind-${{ steps.version.outputs.VERSION }}-*
+            unzip origindive-${{ steps.version.outputs.VERSION }}-*.zip
+            cd origindive-${{ steps.version.outputs.VERSION }}-*
             
             # Linux/macOS: Make executable
-            chmod +x originfind
+            chmod +x origindive
             
             # Run
-            ./originfind -d example.com -n 192.168.1.0/24
+            ./origindive -d example.com -n 192.168.1.0/24
             ```
             
             ## Verify Download
             
             ```bash
-            sha256sum originfind-*.zip
+            sha256sum origindive-*.zip
             # Compare with checksums.txt
             ```
             
             ## Update from CLI
             
-            If you already have originfind installed:
+            If you already have origindive installed:
             ```bash
-            ./originfind --update
+            ./origindive --update
             ```
             
-            See [CHANGELOG.md](https://github.com/jhaxce/originfind/blob/main/CHANGELOG.md) for full release notes.
+            See [CHANGELOG.md](https://github.com/jhaxce/origindive/blob/main/CHANGELOG.md) for full release notes.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

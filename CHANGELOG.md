@@ -7,6 +7,73 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.0.0] - 2025-12-03
+
+### 🚀 Major Rewrite - Complete Architecture Overhaul
+
+**Project renamed from `originfind` to `origindive`** - reflecting the expanded capabilities with both passive (diving into OSINT sources) and active scanning.
+
+### Added
+- **⭐ WAF/CDN IP Filtering** - Killer feature that saves massive scanning time
+  - Automatic detection and skipping of Cloudflare, AWS CloudFront, Fastly, Akamai, Incapsula, and Sucuri IPs
+  - 108 pre-loaded CIDR ranges covering major WAF/CDN providers
+  - Per-provider statistics tracking
+  - `--skip-waf` flag to enable WAF filtering
+  - `--skip-providers` flag to filter specific providers only
+  - `--show-skipped` flag to display filtered IPs
+  - `--custom-waf` flag to load custom WAF range files
+- **Auto-Update WAF Ranges**
+  - Automatic updates from official provider APIs (Cloudflare, AWS, Fastly)
+  - Weekly update schedule (configurable)
+  - Manual update with `origindive waf update` command
+  - `--no-waf-update` flag to disable auto-updates
+- **Modular Architecture**
+  - Separated into logical packages: core, scanner, waf, ip, output, passive
+  - Clean separation of concerns for maintainability
+  - Easy to extend with new features and modules
+- **Enhanced Output Formats**
+  - Text output with colors (default)
+  - JSON export (`--format json`)
+  - CSV export (`--format csv`)
+  - Cleaner formatting and summary displays
+- **YAML Configuration File Support**
+  - Load settings from `origindive.yaml`
+  - `--config` flag to specify config file location
+  - Example config included in `configs/example.yaml`
+- **Advanced IP Utilities**
+  - Improved CIDR parsing with /31 and /32 support
+  - Private and reserved IP detection
+  - Domain sanitization
+  - Multi-range iteration support
+- **Thread-Safe Operations**
+  - Atomic counters for statistics
+  - Concurrent-safe WAF filtering
+  - Efficient channel-based IP iteration
+
+### Changed
+- **BREAKING**: Binary name changed from `originfind` to `origindive`
+- **BREAKING**: Module path changed to `github.com/jhaxce/origindive/v3`
+- **BREAKING**: Minimum Go version raised to 1.23
+- **BREAKING**: CLI flag reorganization for consistency
+- Complete rewrite of core scanning engine
+- Progress bar now shows WAF-filtered IPs separately
+- Improved error messages and validation
+- Enhanced terminal color detection
+
+### Improved
+- **Performance**: More efficient IP iteration using uint32 representation
+- **Memory**: Reduced allocations with better data structures
+- **Concurrency**: Better worker pool management
+- **Error Handling**: Comprehensive error types and messages
+- **Documentation**: Extensive godoc comments on all packages
+
+### Fixed
+- All bugs from v2.x series
+- Cross-platform compatibility issues
+- Color display in various terminal environments
+
+---
+
 ## [2.6.1] - 2025-12-03
 
 ### Added
@@ -165,14 +232,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Version History Summary
 
-- **Unreleased**: User-Agent disable flag
+- **3.0.0 (Latest)**: Complete rewrite with WAF filtering, modular architecture, multi-format output
+- **2.6.1**: Auto-update + GitHub Actions workflow
+- **2.6.0**: Real-time progress bar
 - **2.5.0**: CIDR mask application + comprehensive documentation
-- **2.4.0**: Full color support for WSL/Kali environments
+- **2.4.0**: Full color support for WSL/Kali
 - **2.3.0**: Positional arguments + dynamic versioning
-- **2.2.0**: Input file support + Go module + badges
+- **2.2.0**: Input file support + Go module
 - **2.1.0**: CIDR notation support
 - **2.0.0**: Complete documentation + branding
-- **1.5.0**: Multi-threading + advanced HTTP configuration
-- **1.0.0**: Initial release with basic scanning
+- **1.5.0**: Multi-threading
+- **1.0.0**: Initial release
 
-[2.5.0]: https://github.com/jhaxce/originfind/releases/tag/v2.5.0
+[3.0.0]: https://github.com/jhaxce/origindive/releases/tag/v3.0.0
+[2.6.1]: https://github.com/jhaxce/origindive/releases/tag/v2.6.1
+[2.6.0]: https://github.com/jhaxce/origindive/releases/tag/v2.6.0
+[2.5.0]: https://github.com/jhaxce/origindive/releases/tag/v2.5.0

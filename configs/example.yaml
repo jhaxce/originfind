@@ -1,0 +1,58 @@
+# origindive Configuration File
+# Save as: origindive.yaml
+
+# Target domain
+domain: "example.com"
+
+# Scan mode: passive, active, or auto
+mode: "auto"
+
+# Active scan IP ranges (choose one method)
+# cidr: "192.168.1.0/24"
+# start_ip: "192.168.1.1"
+# end_ip: "192.168.1.254"
+# input_file: "ips.txt"
+
+# HTTP configuration
+http_method: "GET"
+timeout: "5s"
+connect_timeout: "3s"
+# custom_header: "X-Custom: value"
+no_user_agent: false
+
+# Performance
+workers: 10
+
+# WAF Filtering
+skip_waf: true
+skip_providers:
+  - cloudflare
+  - aws-cloudfront
+  - fastly
+# custom_waf_file: "custom_waf_ranges.txt"
+show_skipped: false
+no_waf_update: false
+
+# Passive reconnaissance
+passive_only: false
+auto_scan: true
+min_confidence: 0.7
+passive_sources:
+  - ct
+  - dns
+  # - shodan
+  # - censys
+
+# API Keys (optional, for passive sources)
+# shodan_key: "YOUR_SHODAN_API_KEY"
+# censys_id: "YOUR_CENSYS_ID"
+# censys_secret: "YOUR_CENSYS_SECRET"
+
+# Output configuration
+output_file: "results.txt"
+format: "text"  # text, json, or csv
+quiet: false
+verbose: false
+show_all: false
+no_color: false
+no_progress: false

@@ -1,8 +1,8 @@
 blank_issues_enabled: true
 contact_links:
   - name: Question or Discussion
-    url: https://github.com/jhaxce/originfind/discussions
+    url: https://github.com/jhaxce/origindive/discussions
     about: Ask questions or discuss ideas with the community
   - name: Security Vulnerability
-    url: https://github.com/jhaxce/originfind/security/advisories/new
+    url: https://github.com/jhaxce/origindive/security/advisories/new
     about: Report a security vulnerability (private disclosure)

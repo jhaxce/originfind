@@ -20,7 +20,7 @@ assignees: ''
 ### Example Usage
 ```bash
 # Show how the feature would be used
-./originfind -d example.com --new-flag
+./origindive -d example.com --new-flag
 ```
 
 ### Expected Output
@@ -35,11 +35,11 @@ assignees: ''
 <!-- Add any other context, mockups, or examples about the feature request -->
 
 ## Benefits
-<!-- Why would this feature be useful for originfind users? -->
+<!-- Why would this feature be useful for origindive users? -->
 - 
 - 
 
 ## Checklist
 - [ ] I've checked existing issues for similar requests
-- [ ] This feature aligns with originfind's scope (origin IP discovery)
+- [ ] This feature aligns with origindive's scope (origin IP discovery)
 - [ ] I've provided clear examples of how it would work

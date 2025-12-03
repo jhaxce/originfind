@@ -1,0 +1,26 @@
+{
+  "update_interval_hours": 168,
+  "sources": [
+    {
+      "provider": "cloudflare",
+      "ipv4_url": "https://www.cloudflare.com/ips-v4",
+      "ipv6_url": "https://www.cloudflare.com/ips-v6",
+      "format": "text",
+      "description": "Cloudflare official IP ranges"
+    },
+    {
+      "provider": "aws-cloudfront",
+      "url": "https://ip-ranges.amazonaws.com/ip-ranges.json",
+      "format": "json",
+      "json_path": "$.prefixes[?(@.service=='CLOUDFRONT')].ip_prefix",
+      "description": "AWS CloudFront IP ranges from official AWS API"
+    },
+    {
+      "provider": "fastly",
+      "url": "https://api.fastly.com/public-ip-list",
+      "format": "json",
+      "json_path": "$.addresses",
+      "description": "Fastly public IP list API"
+    }
+  ]
+}

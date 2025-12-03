@@ -1,13 +1,13 @@
-# Contributing to originfind
+# Contributing to origindive
 
-Thank you for your interest in contributing! This document provides guidelines for contributing to originfind.
+Thank you for your interest in contributing! This document provides guidelines for contributing to origindive.
 
 ## How to Contribute
 
 ### Reporting Bugs
 
 Before creating a bug report:
-1. Check the [existing issues](https://github.com/jhaxce/originfind/issues) to avoid duplicates
+1. Check the [existing issues](https://github.com/jhaxce/origindive/issues) to avoid duplicates
 2. Use the latest version to verify the bug still exists
 
 When creating a bug report, include:
@@ -24,7 +24,7 @@ Example:
 **Bug**: Colors not displaying in PowerShell
 **OS**: Windows 10
 **Go**: 1.21
-**Command**: `./originfind -d example.com -n 192.168.1.0/24`
+**Command**: `./origindive -d example.com -n 192.168.1.0/24`
 **Expected**: Colored output
 **Actual**: Plain text output
 ```
@@ -50,8 +50,8 @@ Feature requests are welcome! Please:
    - Keep changes focused (one feature per PR)
 4. **Test your changes**:
    ```bash
-   go build -o originfind originfind.go
-   ./originfind -d example.com -n 192.168.1.0/28
+   go build -o origindive cmd/origindive/main.go
+   ./origindive -d example.com -n 192.168.1.0/28
    ```
 5. **Commit** with clear messages:
    ```bash
@@ -96,14 +96,14 @@ func p(s string) uint32 {
 Before submitting:
 ```bash
 # Build successfully
-go build -o originfind originfind.go
+go build -o origindive cmd/origindive/main.go
 
 # Test basic functionality
-./originfind -d example.com -n 192.168.1.0/28 -j 5
+./origindive -d example.com -n 192.168.1.0/28 -j 5
 
 # Test edge cases
-./originfind -d example.com -s 192.168.1.1 -e 192.168.1.1
-./originfind -d example.com -i test.txt -n /32
+./origindive -d example.com -s 192.168.1.1 -e 192.168.1.1
+./origindive -d example.com -i test.txt -n /32
 ```
 
 ### Documentation
@@ -118,7 +118,7 @@ Files to update:
 - `README.md` - User-facing documentation
 - `CHANGELOG.md` - Version history
 - Code comments - Internal documentation
-- `originfind.go` usage() function - Help text
+- Package documentation - API reference
 
 ## What We're Looking For
 
@@ -172,4 +172,4 @@ By contributing, you agree that your contributions will be licensed under the MI
 
 ---
 
-**Thank you for contributing to originfind!**
+**Thank you for contributing to origindive!**
