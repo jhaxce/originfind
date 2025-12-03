@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [2.6.1] - 2025-12-03
+
+### Added
+- **Auto-Update Feature**: Built-in update checker and installer
+  - `--check-update` flag to check for new versions
+  - `--update` flag to download and install latest release automatically
+  - Background update check during scans (non-blocking notification)
+  - Safe binary replacement with automatic backup
+  - Downloads from GitHub Releases with zip extraction
+- **GitHub Actions Release Workflow**: Automated multi-platform builds
+  - Creates zip packages for Windows, Linux, and macOS (AMD64 + ARM64)
+  - Each package includes binary, LICENSE, README, and CHANGELOG
+  - Generates SHA256 checksums for verification
+  - Auto-publishes GitHub Releases
+
 ## [2.6.0] - 2025-12-02
 
 ### Added

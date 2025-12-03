@@ -58,6 +58,7 @@ This tool sends HTTP requests directly to IP addresses with your target domain i
 ### Advanced Features
 - ⚡ **Multi-threaded scanning** for faster results
 - 📊 **Real-time progress bar** with percentage, ETA, and scan rate
+- 🔄 **Auto-update** with built-in version checker and installer
 - 🎨 **Colored terminal output** (with plain-text mode for scripts)
 - 📁 **Save results to file** for later analysis
 - 🔧 **Custom HTTP headers** and methods
@@ -217,6 +218,8 @@ EOF
 | `-p` | `--plain` | Plain text (no colors) | false |
 | | `--no-color` | Disable colored output | false |
 | `-V` | `--version` | Show version information | - |
+| | `--check-update` | Check for new version | - |
+| | `--update` | Update to latest version | - |
 | `-h` | `--help` | Show help message | - |
 
 ## 📝 Input Methods

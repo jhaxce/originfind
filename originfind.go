@@ -28,15 +28,19 @@
 package main
 
 import (
+	"archive/zip"
 	"bufio"
 	"context"
 	"crypto/tls"
+	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"math"
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
@@ -45,7 +49,7 @@ import (
 )
 
 // Version of the application
-const version = "2.6.0"
+const version = "2.6.1"
 
 // =============================================================================
 // CLI FLAGS
@@ -81,6 +85,8 @@ var (
 
 	// Information flags
 	showVersion = flag.Bool("V", false, "Show version and exit")
+	checkUpdate = flag.Bool("check-update", false, "Check for updates")
+	update      = flag.Bool("update", false, "Update to latest version")
 	helpFlag    = flag.Bool("h", false, "Show help message")
 )
 
@@ -390,6 +396,227 @@ func parseInputFile(filename string, cidrMask string) ([][2]uint32, error) {
 }
 
 // =============================================================================
+// UPDATE CHECK
+// =============================================================================
+
+// GitHubRelease represents a GitHub release API response
+type GitHubRelease struct {
+	TagName string `json:"tag_name"`
+	HTMLURL string `json:"html_url"`
+	Name    string `json:"name"`
+}
+
+// checkForUpdates queries GitHub API for the latest release
+func checkForUpdates() (*GitHubRelease, error) {
+	client := &http.Client{Timeout: 5 * time.Second}
+	resp, err := client.Get("https://api.github.com/repos/jhaxce/originfind/releases/latest")
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("GitHub API returned status %d", resp.StatusCode)
+	}
+
+	var release GitHubRelease
+	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
+		return nil, err
+	}
+
+	return &release, nil
+}
+
+// compareVersions returns true if newVer is greater than currentVer
+func compareVersions(currentVer, newVer string) bool {
+	// Remove 'v' prefix if present
+	currentVer = strings.TrimPrefix(currentVer, "v")
+	newVer = strings.TrimPrefix(newVer, "v")
+	return newVer > currentVer
+}
+
+// downloadUpdate downloads and replaces the current binary
+func downloadUpdate(release *GitHubRelease) error {
+	// Determine platform and architecture
+	platform := runtime.GOOS
+	arch := runtime.GOARCH
+
+	// Determine binary name and zip name
+	binaryName := "originfind"
+	if platform == "windows" {
+		binaryName += ".exe"
+	}
+
+	// Construct zip asset name (e.g., originfind-v2.6.0-windows-amd64.zip)
+	zipName := fmt.Sprintf("originfind-%s-%s-%s.zip", release.TagName, platform, arch)
+
+	// Construct download URL for the zip asset
+	assetURL := fmt.Sprintf("https://github.com/jhaxce/originfind/releases/download/%s/%s", release.TagName, zipName)
+
+	fmt.Printf("%s[*]%s Downloading %s...\n", CYAN, NC, release.TagName)
+
+	// Download the zip file
+	client := &http.Client{Timeout: 60 * time.Second}
+	resp, err := client.Get(assetURL)
+	if err != nil {
+		return fmt.Errorf("download failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return fmt.Errorf("download failed with status %d - asset not found", resp.StatusCode)
+	}
+
+	// Create temporary zip file
+	tmpZip := filepath.Join(os.TempDir(), zipName)
+	zipFile, err := os.Create(tmpZip)
+	if err != nil {
+		return fmt.Errorf("failed to create temp file: %w", err)
+	}
+
+	// Download zip to temp file
+	_, err = io.Copy(zipFile, resp.Body)
+	zipFile.Close()
+	if err != nil {
+		os.Remove(tmpZip)
+		return fmt.Errorf("failed to write zip: %w", err)
+	}
+
+	// Extract binary from zip
+	zipReader, err := zip.OpenReader(tmpZip)
+	if err != nil {
+		os.Remove(tmpZip)
+		return fmt.Errorf("failed to open zip: %w", err)
+	}
+	defer zipReader.Close()
+
+	// Find the binary in the zip
+	var binaryFound bool
+	var tmpBinary string
+	for _, file := range zipReader.File {
+		if filepath.Base(file.Name) == binaryName {
+			binaryFound = true
+
+			// Extract binary
+			rc, err := file.Open()
+			if err != nil {
+				os.Remove(tmpZip)
+				return fmt.Errorf("failed to read binary from zip: %w", err)
+			}
+
+			tmpBinary = filepath.Join(os.TempDir(), binaryName+".tmp")
+			out, err := os.Create(tmpBinary)
+			if err != nil {
+				rc.Close()
+				os.Remove(tmpZip)
+				return fmt.Errorf("failed to create temp binary: %w", err)
+			}
+
+			_, err = io.Copy(out, rc)
+			out.Close()
+			rc.Close()
+
+			if err != nil {
+				os.Remove(tmpBinary)
+				os.Remove(tmpZip)
+				return fmt.Errorf("failed to extract binary: %w", err)
+			}
+			break
+		}
+	}
+
+	// Cleanup zip
+	os.Remove(tmpZip)
+
+	if !binaryFound {
+		return fmt.Errorf("binary not found in zip package")
+	}
+
+	// Get current executable path
+	exePath, err := os.Executable()
+	if err != nil {
+		os.Remove(tmpBinary)
+		return fmt.Errorf("failed to get executable path: %w", err)
+	}
+
+	// Make it executable (Unix-like systems)
+	if runtime.GOOS != "windows" {
+		if err := os.Chmod(tmpBinary, 0755); err != nil {
+			os.Remove(tmpBinary)
+			return fmt.Errorf("failed to make executable: %w", err)
+		}
+	}
+
+	// Backup current binary
+	backupFile := exePath + ".old"
+	os.Remove(backupFile) // Remove old backup if exists
+	if err := os.Rename(exePath, backupFile); err != nil {
+		os.Remove(tmpBinary)
+		return fmt.Errorf("failed to backup current binary: %w", err)
+	}
+
+	// Replace with new binary
+	if err := os.Rename(tmpBinary, exePath); err != nil {
+		// Try to restore backup
+		os.Rename(backupFile, exePath)
+		return fmt.Errorf("failed to replace binary: %w", err)
+	}
+
+	// Remove backup on success
+	os.Remove(backupFile)
+
+	fmt.Printf("%s[✓]%s Successfully updated to %s\n", GREEN, NC, release.TagName)
+	fmt.Printf("%s[i]%s Please restart originfind to use the new version\n", BLUE, NC)
+
+	return nil
+}
+
+// performUpdateCheck checks for updates and optionally installs them
+func performUpdateCheck(autoUpdate bool) {
+	fmt.Printf("%s[*]%s Checking for updates...\n", CYAN, NC)
+
+	release, err := checkForUpdates()
+	if err != nil {
+		fmt.Printf("%s[!]%s Failed to check for updates: %v\n", YELLOW, NC, err)
+		return
+	}
+
+	if !compareVersions(version, release.TagName) {
+		fmt.Printf("%s[✓]%s You are running the latest version (%s)\n", GREEN, NC, version)
+		return
+	}
+
+	fmt.Printf("%s[!]%s New version available: %s (current: %s)\n", YELLOW, NC, release.TagName, version)
+	fmt.Printf("%s[i]%s Release: %s\n", BLUE, NC, release.Name)
+	fmt.Printf("%s[i]%s URL: %s\n", BLUE, NC, release.HTMLURL)
+
+	if !autoUpdate {
+		fmt.Printf("%s[i]%s Run with --update flag to install the latest version\n", BLUE, NC)
+		return
+	}
+
+	// Perform update
+	if err := downloadUpdate(release); err != nil {
+		fmt.Printf("%s[✗]%s Update failed: %v\n", RED, NC, err)
+		fmt.Printf("%s[i]%s Manual download: %s\n", BLUE, NC, release.HTMLURL)
+	}
+}
+
+// backgroundUpdateCheck runs update check in background without blocking
+func backgroundUpdateCheck() {
+	go func() {
+		release, err := checkForUpdates()
+		if err != nil {
+			return // Silently fail
+		}
+
+		if compareVersions(version, release.TagName) {
+			fmt.Printf("%s\n[!] New version %s available! Run with --update to upgrade%s\n", YELLOW, release.TagName, NC)
+		}
+	}()
+}
+
+// =============================================================================
 // PROGRESS DISPLAY
 // =============================================================================
 
@@ -547,6 +774,14 @@ func main() {
 	}
 	if *showVersion {
 		fmt.Printf("originfind v%s\n", version)
+		return
+	}
+	if *checkUpdate {
+		performUpdateCheck(false)
+		return
+	}
+	if *update {
+		performUpdateCheck(true)
 		return
 	}
 
@@ -716,6 +951,11 @@ func main() {
 		}
 		fmt.Println("════════════════════════════════════════════════════════════")
 		fmt.Println()
+	}
+
+	// Background update check (non-blocking)
+	if !*quiet {
+		backgroundUpdateCheck()
 	}
 
 	// Prepare results output file if requested
