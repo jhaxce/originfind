@@ -30,6 +30,7 @@ type ScanSummary struct {
 	ScannedIPs   uint64            `json:"scanned_ips"`
 	SkippedIPs   uint64            `json:"skipped_ips"` // WAF IPs
 	SuccessCount uint64            `json:"success_count"`
+	SuccessIPs   []string          `json:"success_ips,omitempty"` // List of 200 OK IPs
 	Duration     time.Duration     `json:"duration"`
 	WAFStats     map[string]uint64 `json:"waf_stats,omitempty"` // provider -> count
 }
@@ -40,6 +41,10 @@ type IPResult struct {
 	Status       string `json:"status"` // "200", "3xx", "4xx", "5xx", "timeout", "error", "skipped"
 	HTTPCode     int    `json:"http_code"`
 	ResponseTime string `json:"response_time"`
+	BodyHash     string `json:"body_hash,omitempty"`    // SHA256 hash of response body (first 8KB)
+	Title        string `json:"title,omitempty"`        // HTML title tag content
+	ContentType  string `json:"content_type,omitempty"` // Response Content-Type header
+	Server       string `json:"server,omitempty"`       // Server header
 	Error        string `json:"error,omitempty"`
 	Provider     string `json:"provider,omitempty"` // WAF provider if skipped
 }

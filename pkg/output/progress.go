@@ -17,6 +17,7 @@ type Progress struct {
 	startTime  time.Time
 	enabled    bool
 	lastUpdate time.Time
+	stopped    *uint32 // atomic flag for stopping display loop
 
 	// Colors
 	cyan    string
@@ -32,11 +33,13 @@ type Progress struct {
 func NewProgress(total uint64, enabled bool, useColors bool) *Progress {
 	scanned := uint64(0)
 	skipped := uint64(0)
+	stopped := uint32(0)
 
 	p := &Progress{
 		total:     total,
 		scanned:   &scanned,
 		skipped:   &skipped,
+		stopped:   &stopped,
 		startTime: time.Now(),
 		enabled:   enabled,
 	}
@@ -59,23 +62,47 @@ func (p *Progress) IncrementScanned() {
 	atomic.AddUint64(p.scanned, 1)
 }
 
+// Update sets the scanned counter to a specific value
+func (p *Progress) Update(scanned uint64) {
+	atomic.StoreUint64(p.scanned, scanned)
+}
+
 // IncrementSkipped increments the skipped counter
 func (p *Progress) IncrementSkipped() {
 	atomic.AddUint64(p.skipped, 1)
 }
 
-// Display shows the current progress
+// Display shows the current progress continuously (run in goroutine)
 func (p *Progress) Display() {
 	if !p.enabled {
 		return
 	}
 
-	// Throttle updates to avoid flickering
-	now := time.Now()
-	if now.Sub(p.lastUpdate) < 100*time.Millisecond {
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		if atomic.LoadUint32(p.stopped) == 1 {
+			p.render()
+			fmt.Println() // New line at end
+			return
+		}
+
+		<-ticker.C
+		p.render()
+	}
+}
+
+// Stop stops the progress display
+func (p *Progress) Stop() {
+	atomic.StoreUint32(p.stopped, 1)
+}
+
+// render displays the current progress state
+func (p *Progress) render() {
+	if !p.enabled {
 		return
 	}
-	p.lastUpdate = now
 
 	scanned := atomic.LoadUint64(p.scanned)
 	skipped := atomic.LoadUint64(p.skipped)

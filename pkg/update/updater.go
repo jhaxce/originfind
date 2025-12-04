@@ -17,12 +17,15 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jhaxce/origindive/v3/internal/version"
+	"github.com/jhaxce/origindive/internal/version"
 )
 
 const (
-	// GitHubReleasesAPI is the GitHub API endpoint for releases
+	// GitHubReleasesAPI is the primary GitHub API endpoint for releases
 	GitHubReleasesAPI = "https://api.github.com/repos/jhaxce/origindive/releases/latest"
+
+	// GitHubReleasesAPIFallback is the fallback endpoint via web interface
+	GitHubReleasesWebURL = "https://github.com/jhaxce/origindive/releases/latest"
 
 	// UpdateCheckInterval is how often to check for updates
 	UpdateCheckInterval = 24 * time.Hour
@@ -69,12 +72,16 @@ func CheckForUpdate() (*UpdateInfo, error) {
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch release info: %w", err)
+		return nil, fmt.Errorf("failed to fetch release info from GitHub API: %w\nFallback: Check manually at %s", err, GitHubReleasesWebURL)
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode == http.StatusForbidden || resp.StatusCode == http.StatusTooManyRequests {
+		return nil, fmt.Errorf("GitHub API rate limit exceeded. Please try again later or check manually at %s", GitHubReleasesWebURL)
+	}
+
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("GitHub API returned status %d", resp.StatusCode)
+		return nil, fmt.Errorf("GitHub API returned status %d. Check manually at %s", resp.StatusCode, GitHubReleasesWebURL)
 	}
 
 	var release Release

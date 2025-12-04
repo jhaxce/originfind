@@ -5,9 +5,10 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 
-	"github.com/jhaxce/origindive/v3/pkg/core"
+	"github.com/jhaxce/origindive/pkg/core"
 )
 
 // Formatter provides result formatting in various formats
@@ -55,32 +56,9 @@ func (f *Formatter) FormatHeader(config *core.Config, totalIPs uint64) string {
 		return ""
 	}
 
-	var sb strings.Builder
-	sb.WriteString("\n")
-	sb.WriteString(f.cyan + "═══════════════════════════════════════════════════════════════\n")
-	sb.WriteString("              _       _           ___          \n")
-	sb.WriteString("  ____  _____(_)___ _(_)___  ____/ (_)   _____ \n")
-	sb.WriteString(" / __ \\/ ___/ / __ `/ / __ \\/ __  / / | / / _ \\\n")
-	sb.WriteString("/ /_/ / /  / / /_/ / / / / / /_/ / /| |/ /  __/\n")
-	sb.WriteString("\\____/_/  /_/\\__, /_/_/ /_/\\__,_/_/ |___/\\___/ \n")
-	sb.WriteString("            /____/\n")
-	sb.WriteString("═══════════════════════════════════════════════════════════════" + f.nc + "\n")
-	sb.WriteString(fmt.Sprintf("[*] Domain: %s\n", config.Domain))
-	sb.WriteString(fmt.Sprintf("[*] Mode: %s\n", config.Mode))
-	sb.WriteString(fmt.Sprintf("[*] Total IPs: %d\n", totalIPs))
-	sb.WriteString(fmt.Sprintf("[*] Workers: %d\n", config.Workers))
-
-	if config.SkipWAF {
-		providers := "all"
-		if len(config.SkipProviders) > 0 {
-			providers = strings.Join(config.SkipProviders, ", ")
-		}
-		sb.WriteString(fmt.Sprintf("[*] WAF Filtering: %s\n", providers))
-	}
-
-	sb.WriteString(f.cyan + "═══════════════════════════════════════════════════════════════" + f.nc + "\n\n")
-
-	return sb.String()
+	// Banner is now handled by main.go printBanner()
+	// This function is kept for potential future use
+	return ""
 }
 
 // FormatResult formats a single IP result
@@ -100,8 +78,20 @@ func (f *Formatter) FormatResult(result core.IPResult) string {
 func (f *Formatter) formatTextResult(result core.IPResult) string {
 	switch result.Status {
 	case "200":
-		return fmt.Sprintf("%s[+]%s %s --> %s200 OK%s (%s)",
+		msg := fmt.Sprintf("%s[+]%s %s --> %s200 OK%s (%s)",
 			f.green, f.nc, result.IP, f.green, f.nc, result.ResponseTime)
+
+		// Add title if available
+		if result.Title != "" {
+			msg += fmt.Sprintf(" | %s\"%s\"%s", f.cyan, result.Title, f.nc)
+		}
+
+		// Add body hash if available (to identify unique responses)
+		if result.BodyHash != "" {
+			msg += fmt.Sprintf(" [%s%s%s]", f.magenta, result.BodyHash, f.nc)
+		}
+
+		return msg
 	case "3xx":
 		if !f.showAll {
 			return ""
@@ -140,6 +130,82 @@ func (f *Formatter) FormatSummary(summary core.ScanSummary) string {
 	}
 }
 
+// FormatDuplicateStats formats duplicate hash statistics
+func (f *Formatter) FormatDuplicateStats(hashGroups map[string][]*core.IPResult) string {
+	if len(hashGroups) == 0 {
+		return ""
+	}
+
+	var sb strings.Builder
+	sb.WriteString("\n")
+	sb.WriteString(f.cyan + "═══════════════════════════════════════════════════════════════\n")
+	sb.WriteString(f.bold + "Content Hash Analysis\n" + f.nc)
+	sb.WriteString(f.cyan + "═══════════════════════════════════════════════════════════════" + f.nc + "\n")
+
+	// Sort by group size (largest first)
+	type hashGroup struct {
+		hash    string
+		count   int
+		results []*core.IPResult
+		title   string
+	}
+	var groups []hashGroup
+	for hash, results := range hashGroups {
+		title := ""
+		if len(results) > 0 && results[0].Title != "" {
+			title = results[0].Title
+		}
+		groups = append(groups, hashGroup{hash, len(results), results, title})
+	}
+	sort.Slice(groups, func(i, j int) bool {
+		return groups[i].count > groups[j].count
+	})
+
+	// Show statistics
+	sb.WriteString(fmt.Sprintf("%s[*]%s Total unique responses: %s%d%s\n", f.bold, f.nc, f.green, len(groups), f.nc))
+	sb.WriteString("\n")
+
+	// Show each group
+	for i, g := range groups {
+		if g.count == 1 {
+			if g.title != "" {
+				sb.WriteString(fmt.Sprintf("%s[✓] Hash %s%s%s (%s%d IP%s) - UNIQUE RESPONSE: %s\"%s\"%s\n",
+					f.green, f.magenta, g.hash, f.nc, f.green, g.count, f.nc, f.cyan, g.title, f.nc))
+			} else {
+				sb.WriteString(fmt.Sprintf("%s[✓] Hash %s%s%s (%s%d IP%s) - UNIQUE RESPONSE%s\n",
+					f.green, f.magenta, g.hash, f.nc, f.green, g.count, f.nc, f.nc))
+			}
+		} else {
+			if g.title != "" {
+				sb.WriteString(fmt.Sprintf("%s[~] Hash %s%s%s (%s%d IPs%s) - Shared response: %s\"%s\"%s\n",
+					f.yellow, f.magenta, g.hash, f.nc, f.yellow, g.count, f.nc, f.cyan, g.title, f.nc))
+			} else {
+				sb.WriteString(fmt.Sprintf("%s[~] Hash %s%s%s (%s%d IPs%s) - Shared response:%s\n",
+					f.yellow, f.magenta, g.hash, f.nc, f.yellow, g.count, f.nc, f.nc))
+			}
+		}
+
+		// Show first 5 IPs in group
+		maxShow := 5
+		if g.count < maxShow {
+			maxShow = g.count
+		}
+		for j := 0; j < maxShow; j++ {
+			sb.WriteString(fmt.Sprintf("    %s%s%s\n", f.cyan, g.results[j].IP, f.nc))
+		}
+		if g.count > maxShow {
+			sb.WriteString(fmt.Sprintf("    ... and %d more\n", g.count-maxShow))
+		}
+
+		if i < len(groups)-1 {
+			sb.WriteString("\n")
+		}
+	}
+
+	sb.WriteString(f.cyan + "═══════════════════════════════════════════════════════════════" + f.nc + "\n")
+	return sb.String()
+}
+
 // formatTextSummary formats summary in text format
 func (f *Formatter) formatTextSummary(summary core.ScanSummary) string {
 	var sb strings.Builder
@@ -148,7 +214,21 @@ func (f *Formatter) formatTextSummary(summary core.ScanSummary) string {
 	sb.WriteString(f.cyan + "═══════════════════════════════════════════════════════════════\n")
 	sb.WriteString(f.bold + "Scan Results Summary\n" + f.nc)
 	sb.WriteString(f.cyan + "═══════════════════════════════════════════════════════════════" + f.nc + "\n")
-	sb.WriteString(fmt.Sprintf("%s[+]%s 200 OK Found: %s%d%s\n", f.green, f.nc, f.green, summary.SuccessCount, f.nc))
+	sb.WriteString(fmt.Sprintf("%s[+]%s 200 OK Found: %s%d%s", f.green, f.nc, f.green, summary.SuccessCount, f.nc))
+
+	// Show success IPs if any
+	if len(summary.SuccessIPs) > 0 {
+		sb.WriteString(" (")
+		for i, ip := range summary.SuccessIPs {
+			if i > 0 {
+				sb.WriteString(", ")
+			}
+			sb.WriteString(f.green + ip + f.nc)
+		}
+		sb.WriteString(")")
+	}
+	sb.WriteString("\n")
+
 	sb.WriteString(fmt.Sprintf("%s[*]%s Total Scanned: %s%d%s\n", f.bold, f.nc, f.bold, summary.ScannedIPs, f.nc))
 
 	if summary.SkippedIPs > 0 {

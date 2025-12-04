@@ -66,8 +66,8 @@ func (rs *RangeSet) AddProviders(providers []*Provider) error {
 
 // Contains checks if an IP is in any of the ranges
 func (rs *RangeSet) Contains(ip net.IP) bool {
-	_, _ = rs.FindProvider(ip)
-	return rs.providers != nil
+	_, found := rs.FindProvider(ip)
+	return found
 }
 
 // FindProvider returns the provider ID if the IP is in a WAF range

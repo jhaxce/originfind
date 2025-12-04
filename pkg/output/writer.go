@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/jhaxce/origindive/v3/pkg/core"
+	"github.com/jhaxce/origindive/pkg/core"
 )
 
 // Writer handles output to console and file

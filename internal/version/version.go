@@ -3,7 +3,7 @@ package version
 
 const (
 	// Version is the current version of origindive
-	Version = "3.0.0"
+	Version = "3.1.0"
 
 	// AppName is the application name
 	AppName = "origindive"

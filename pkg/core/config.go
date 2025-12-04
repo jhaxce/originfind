@@ -9,6 +9,18 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// PassiveConfig holds configuration for passive reconnaissance
+type PassiveConfig struct {
+	// API Keys (can be multiple, comma-separated)
+	ShodanKeys         []string `yaml:"shodan_keys" json:"shodan_keys"`
+	CensysTokens       []string `yaml:"censys_tokens" json:"censys_tokens"` // New PAT format
+	SecurityTrailsKeys []string `yaml:"securitytrails_keys" json:"securitytrails_keys"`
+	ZoomEyeKeys        []string `yaml:"zoomeye_keys" json:"zoomeye_keys"`
+	DNSDumpsterKeys    []string `yaml:"dnsdumpster_keys" json:"dnsdumpster_keys"`
+	VirusTotalKeys     []string `yaml:"virustotal_keys" json:"virustotal_keys"`
+	ViewDNSKeys        []string `yaml:"viewdns_keys" json:"viewdns_keys"`
+}
+
 // Config holds all configuration for origindive
 type Config struct {
 	// Target configuration
@@ -23,23 +35,41 @@ type Config struct {
 	EndIP     string      `yaml:"end_ip" json:"end_ip"`
 	CIDR      string      `yaml:"cidr" json:"cidr"`
 	InputFile string      `yaml:"input_file" json:"input_file"`
+	ASN       string      `yaml:"asn" json:"asn"` // ASN lookup (e.g., "AS4775" or "4775")
+
+	// CIDR expansion for auto mode
+	ExpandNetmask string `yaml:"expand_netmask" json:"expand_netmask"` // e.g., "/24" or "24"
 
 	// HTTP configuration
 	HTTPMethod     string        `yaml:"http_method" json:"http_method"`
 	Timeout        time.Duration `yaml:"timeout" json:"timeout"`
 	ConnectTimeout time.Duration `yaml:"connect_timeout" json:"connect_timeout"`
 	CustomHeader   string        `yaml:"custom_header" json:"custom_header"`
-	NoUserAgent    bool          `yaml:"no_user_agent" json:"no_user_agent"`
+	UserAgent      string        `yaml:"user_agent" json:"user_agent"`         // Custom UA: "random", "chrome", "firefox", etc., or custom string
+	NoUserAgent    bool          `yaml:"no_user_agent" json:"no_user_agent"`   // Disable User-Agent header entirely
+	VerifyContent  bool          `yaml:"verify_content" json:"verify_content"` // Extract title and hash response
+	FilterUnique   bool          `yaml:"filter_unique" json:"filter_unique"`   // Show only unique responses
+
+	// Proxy configuration
+	ProxyURL    string `yaml:"proxy_url" json:"proxy_url"`       // Single proxy URL (http://IP:PORT, socks5://IP:PORT)
+	ProxyAuto   bool   `yaml:"proxy_auto" json:"proxy_auto"`     // Auto-fetch from public proxy lists
+	ProxyRotate bool   `yaml:"proxy_rotate" json:"proxy_rotate"` // Rotate through proxy list
+	ProxyTest   bool   `yaml:"proxy_test" json:"proxy_test"`     // Test proxy before use (default: true)
+
+	// Webshare.io premium proxy configuration
+	WebshareAPIKey string `yaml:"webshare_api_key" json:"webshare_api_key"` // Webshare.io API token
+	WebsharePlanID string `yaml:"webshare_plan_id" json:"webshare_plan_id"` // Optional plan ID for download endpoint
 
 	// Performance
 	Workers int `yaml:"workers" json:"workers"`
 
 	// WAF filtering
-	SkipWAF       bool     `yaml:"skip_waf" json:"skip_waf"`
-	SkipProviders []string `yaml:"skip_providers" json:"skip_providers"`
-	CustomWAFFile string   `yaml:"custom_waf_file" json:"custom_waf_file"`
-	ShowSkipped   bool     `yaml:"show_skipped" json:"show_skipped"`
-	NoWAFUpdate   bool     `yaml:"no_waf_update" json:"no_waf_update"`
+	SkipWAF         bool     `yaml:"skip_waf" json:"skip_waf"`
+	SkipProviders   []string `yaml:"skip_providers" json:"skip_providers"`
+	CustomWAFFile   string   `yaml:"custom_waf_file" json:"custom_waf_file"`
+	ShowSkipped     bool     `yaml:"show_skipped" json:"show_skipped"`
+	NoWAFUpdate     bool     `yaml:"no_waf_update" json:"no_waf_update"`
+	WAFDatabasePath string   `yaml:"-" json:"-"` // Runtime-computed path to WAF database
 
 	// Passive scan configuration
 	PassiveOnly    bool     `yaml:"passive_only" json:"passive_only"`
@@ -47,10 +77,16 @@ type Config struct {
 	MinConfidence  float64  `yaml:"min_confidence" json:"min_confidence"`
 	PassiveSources []string `yaml:"passive_sources" json:"passive_sources"`
 
-	// API keys for passive sources
-	ShodanKey    string `yaml:"shodan_key" json:"shodan_key"`
-	CensysID     string `yaml:"censys_id" json:"censys_id"`
-	CensysSecret string `yaml:"censys_secret" json:"censys_secret"`
+	// API Keys for passive sources (flat structure for easier YAML editing)
+	ShodanKeys         []string `yaml:"shodan_keys" json:"shodan_keys"`
+	CensysTokens       []string `yaml:"censys_tokens" json:"censys_tokens"` // PAT tokens (Bearer auth)
+	CensysOrgID        string   `yaml:"censys_org_id" json:"censys_org_id"` // Organization ID for paid plans
+	SecurityTrailsKeys []string `yaml:"securitytrails_keys" json:"securitytrails_keys"`
+	ZoomEyeKeys        []string `yaml:"zoomeye_keys" json:"zoomeye_keys"`
+	DNSDumpsterKeys    []string `yaml:"dnsdumpster_keys" json:"dnsdumpster_keys"`
+	VirusTotalKeys     []string `yaml:"virustotal_keys" json:"virustotal_keys"`
+	ViewDNSKeys        []string `yaml:"viewdns_keys" json:"viewdns_keys"`
+	HunterKeys         []string `yaml:"hunter_keys" json:"hunter_keys"`
 
 	// Output configuration
 	OutputFile string       `yaml:"output_file" json:"output_file"`
@@ -198,15 +234,7 @@ func (c *Config) MergeWithCLI(cli *Config) {
 	if len(cli.PassiveSources) > 0 {
 		c.PassiveSources = cli.PassiveSources
 	}
-	if cli.ShodanKey != "" {
-		c.ShodanKey = cli.ShodanKey
-	}
-	if cli.CensysID != "" {
-		c.CensysID = cli.CensysID
-	}
-	if cli.CensysSecret != "" {
-		c.CensysSecret = cli.CensysSecret
-	}
+	// Note: API keys now loaded from global config only, not CLI
 	if cli.OutputFile != "" {
 		c.OutputFile = cli.OutputFile
 	}
