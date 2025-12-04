@@ -15,7 +15,7 @@
 # Free tier: 10 proxies with limited bandwidth
 # Paid plans: $1.38/GB datacenter, $2.99/GB residential
 # Get API key: https://proxy2.webshare.io/userapi/credentials
-# Example account: jake.hlink@gmail.com
+# Example account: user@example.com
 webshare_keys:
   - "YOUR_WEBSHARE_API_KEY_HERE"
   # - "BACKUP_KEY_FOR_ROTATION"

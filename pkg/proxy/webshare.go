@@ -53,7 +53,7 @@ type WebshareProfile struct {
 // FetchWebshareProxies fetches proxies from Webshare.io API
 func FetchWebshareProxies(ctx context.Context, config *WebshareConfig) ([]*Proxy, error) {
 	if config == nil || config.APIKey == "" {
-		return nil, fmt.Errorf("API key is required for Webshare")
+		return nil, fmt.Errorf("webshare API key is required")
 	}
 
 	client := &http.Client{Timeout: 30 * time.Second}

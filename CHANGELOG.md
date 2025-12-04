@@ -5,6 +5,8 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
 ## [3.1.0] - 2025-12-04
 
 ### 🌟 Major Release - Passive Reconnaissance + Enhanced Proxy System
@@ -316,7 +318,7 @@ This release transforms origindive from an active-only scanner into a **comprehe
 **configs/global.example.yaml** (NEW)
 - Webshare API key configuration
 - Platform-specific paths
-- Example with jake.hlink@gmail.com account
+- Example with user@example.com account
 - Pricing information for Webshare plans
 
 **configs/example.yaml** (UPDATED)
@@ -595,7 +597,7 @@ Download: https://github.com/jhaxce/origindive/releases/tag/v3.1.0
 ### Fixed
 - Color initialization moved before flag parsing to ensure help text displays correctly
 
-## [2.4.0] - 2025-12-02
+## 2.4.0 - 2025-12-02
 
 ### Added
 - Full colored terminal output support for WSL/Kali Linux environments
@@ -611,7 +613,7 @@ Download: https://github.com/jhaxce/origindive/releases/tag/v3.1.0
 - Colors not displaying in WSL/Kali terminal environments
 - Help text displaying without colors
 
-## [2.3.0] - 2025-12-02
+## 2.3.0 - 2025-12-02
 
 ### Added
 - Positional argument support for convenience
@@ -625,7 +627,7 @@ Download: https://github.com/jhaxce/origindive/releases/tag/v3.1.0
 ### Removed
 - Unused `verbose` flag variable
 
-## [2.2.0] - 2025-12-01
+## 2.2.0 - 2025-12-01
 
 ### Added
 - Input file parsing functionality (`-i` flag)
@@ -638,7 +640,7 @@ Download: https://github.com/jhaxce/origindive/releases/tag/v3.1.0
 - README.md expanded with comprehensive documentation
 - Usage examples updated to include input file mode
 
-## [2.1.0] - 2025-12-01
+## 2.1.0 - 2025-12-01
 
 ### Added
 - CIDR notation support with automatic subnet expansion
@@ -650,7 +652,7 @@ Download: https://github.com/jhaxce/origindive/releases/tag/v3.1.0
 - IP range parsing improved to handle CIDR notation
 - Documentation updated with CIDR examples
 
-## [2.0.0] - 2025-12-01
+## 2.0.0 - 2025-12-01
 
 ### Added
 - Comprehensive README.md with detailed documentation
@@ -665,7 +667,7 @@ Download: https://github.com/jhaxce/origindive/releases/tag/v3.1.0
 - Naming consistency: removed "Origin IP Finder", using only "originfind" throughout
 - Project branding and documentation standardized
 
-## [1.5.0] - 2025-12-01
+## 1.5.0 - 2025-12-01
 
 ### Added
 - Multi-threaded scanning with worker pool pattern
@@ -679,7 +681,7 @@ Download: https://github.com/jhaxce/origindive/releases/tag/v3.1.0
 - Performance significantly improved with concurrent scanning
 - HTTP client configuration enhanced with custom timeouts
 
-## [1.0.0] - 2025-12-01
+## 1.0.0 - 2025-12-01
 
 ### Added
 - Initial release
