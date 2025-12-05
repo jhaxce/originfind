@@ -12,7 +12,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Go Version](https://img.shields.io/badge/Go-1.23+-blue.svg)](https://golang.org/)
-[![Release](https://img.shields.io/github/v/release/jhaxce/origindive)](https://github.com/jhaxce/origindive/releases)
+[![Release](https://img.shields.io/github/v/release/jhaxce/origindive?label=v3.2.0)](https://github.com/jhaxce/origindive/releases)
 [![Go Report Card](https://goreportcard.com/badge/github.com/jhaxce/origindive)](https://goreportcard.com/report/github.com/jhaxce/origindive)
 [![codecov](https://codecov.io/gh/jhaxce/origindive/branch/main/graph/badge.svg)](https://codecov.io/gh/jhaxce/origindive)
 [![Go Reference](https://pkg.go.dev/badge/github.com/jhaxce/origindive.svg)](https://pkg.go.dev/github.com/jhaxce/origindive)
@@ -56,7 +56,49 @@ origindive sends HTTP requests directly to IP addresses with your target domain 
 
 ## ✨ Features
 
-### v3.1 New Features
+### v3.2 New Features
+
+- **🔗 Smart Redirect Following** - Follow HTTP redirects while preserving IP testing
+  - Flexible syntax: `--follow-redirect` (default 10) or `--follow-redirect=5` (custom max)
+  - IP-preserving redirects: Test same IP through entire redirect chain
+  - Full chain tracking: Records complete path (301 → HTTPS → final destination)
+  - Inline display: Redirect chains shown with each 200 OK result
+  
+- **⚠️ False Positive Detection** - Identify shared hosting via Host header validation
+  - Post-scan validation: Re-tests successful IPs WITHOUT Host header
+  - Detects behavior differences: Flags IPs that redirect differently
+  - Smart comparison: Ignores HTTP→HTTPS upgrades, catches real mismatches  
+  - Automatic warnings: Appends ⚠️ to redirect chains for suspicious IPs
+  - Summary integration: Shows verified origins separately from all 200 OK
+  
+- **📊 Enhanced Summary Display** - Clear distinction between real and potential false positives
+  - `[+] Found: 203.0.113.10` - Verified origins (no warnings)
+  - `[+] 200 OK: 6 (...)` - All responses including potential false positives
+  - Smart filtering: Only shows verified line if real origins found
+
+**Example Output with Validation**:
+```
+[+] 203.0.113.10 --> 200 OK (1.4s) | "Example Site" [dda7f97c]
+    Redirect chain:
+      1. 301 http://203.0.113.10 -> https://example.com:443/
+
+[+] 203.0.113.20 --> 200 OK (545ms) [05c4b0d2]
+    Redirect chain:
+      1. 301 http://203.0.113.20 -> https://example.com:443/
+      2. ⚠ Without Host header: https://203.0.113.20:443/ (different from https://example.com:443/)
+
+═══════════════════════════════════════════════════════════════
+Scan Results Summary
+═══════════════════════════════════════════════════════════════
+[+] Found: 203.0.113.10
+[+] 200 OK: 6 (203.0.113.15, 203.0.113.20, 203.0.113.25, 203.0.113.30, 203.0.113.35, 203.0.113.10)
+[*] Total Scanned: 27
+[T] Duration: 12.39s
+[R] Scan Rate: 2.18 IPs/s
+═══════════════════════════════════════════════════════════════
+```
+
+### v3.1 Features
 
 - **🌍 Country-Aware Proxy Fetching** - Auto-detect your location for geo-optimized proxies
   - Detects country from Cloudflare CDN trace (loc=XX)
@@ -191,8 +233,14 @@ origindive -d example.com --auto-scan
 # Basic IP range scan
 origindive -d example.com -s 192.168.1.1 -e 192.168.1.254
 
-# CIDR subnet with 10 workers
-origindive -d example.com -n 192.168.1.0/24 -j 10
+# CIDR subnet with redirect following
+origindive -d example.com -n 192.168.1.0/24 --follow-redirect
+
+# Scan with redirect validation and false positive detection
+origindive -d example.com -i ips.txt --follow-redirect=5
+
+# Scan ASN with verification and redirect following
+origindive -d example.com --asn AS4775 --skip-waf --follow-redirect --verify
 
 # Scan with WAF filtering enabled
 origindive -d example.com -n 23.0.0.0/16 --skip-waf -j 20
@@ -451,6 +499,7 @@ HTTP:
   --no-ua                   Disable User-Agent header
   --verify                  Extract title and hash response body for verification
   --filter-unique           Show only IPs with unique content (requires --verify)
+  --follow-redirect[=N]     Follow redirects (default max: 10, custom: N)
   
 Proxy:
   -P, --proxy string        Proxy URL (http://IP:PORT or socks5://IP:PORT)

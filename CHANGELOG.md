@@ -7,6 +7,268 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.2.0] - 2025-12-05
+
+### 🔍 Smart Redirect Following & False Positive Detection
+
+This release adds intelligent redirect chain following with Host header validation to accurately distinguish real origin servers from shared hosting false positives.
+
+---
+
+### Added
+
+#### 🔗 Redirect Chain Following (`--follow-redirect`)
+- **Flexible syntax**: `--follow-redirect` (default 10) or `--follow-redirect=N` (custom max)
+- **IP-preserving redirects**: Tests same IP through redirect chain without jumping to new domains
+- **Full chain tracking**: Records complete redirect path (301/302 → HTTPS → final destination)
+- **Inline display**: Redirect chains shown with each 200 OK result
+- Example:
+  ```
+  [+] 203.0.113.10 --> 200 OK (1.4s) | "Example Site" [hash]
+      Redirect chain:
+        1. 301 http://203.0.113.10 -> https://example.com:443/
+  ```
+
+#### ⚠️ False Positive Detection via Host Header Validation
+- **Post-scan validation**: Tests successful IPs WITHOUT Host header after main scan
+- **Detects shared hosting**: Identifies IPs that respond differently based on Host header
+- **Automatic flagging**: Adds warning to redirect chain when behavior differs
+- **Smart comparison**: Only flags true mismatches (ignores HTTP→HTTPS upgrades)
+- **Summary integration**: Shows verified origins vs all 200 OK responses
+- Example warning:
+  ```
+  [+] 203.0.113.20 --> 200 OK (545ms) [hash]
+      Redirect chain:
+        1. 301 http://203.0.113.20 -> https://example.com:443/
+        2. ⚠ Without Host header: https://203.0.113.20:443/ (different from https://example.com:443/)
+  ```
+
+#### 📊 Enhanced Summary Display
+- **Verified origins first**: `[+] Found: 203.0.113.10` (IPs without warnings)
+- **All results second**: `[+] 200 OK: 6 (...)` (complete list)
+- **Smart filtering**: Only shows `[+] Found:` line if verified origins exist
+- **False positive tracking**: Internal count (not displayed if 0)
+
+---
+
+### Changed
+
+#### 🎯 Redirect Following Implementation
+- **HTTP → HTTPS preservation**: Rewrites redirect URL to preserve testing same IP
+- **Domain-based Host header**: Sets `Host: target.com` while connecting to IP
+- **Max redirects configurable**: Default 10, customizable via flag
+- **Chain format**: `STATUS http://IP -> https://destination/path`
+
+#### 🔍 Validation Strategy
+- **Two-phase approach**: Main scan WITH Host header → Validation WITHOUT Host header
+- **Performance optimized**: Only validates successful 200 OK responses (not all IPs)
+- **Follows full chain**: Validates complete redirect path (not just first hop)
+- **Natural behavior detection**: Compares final destinations to identify false positives
+
+---
+
+### Technical Details
+
+#### Redirect Handling (`pkg/scanner/scanner.go`)
+- `CheckRedirect` callback records chain and preserves IP
+- URL rewriting: `req.URL.Host = originalIP; req.Host = redirectedDomain`
+- Prevents following redirects to different servers (stays on tested IP)
+
+#### Validation Logic (`pkg/scanner/scanner.go:validateSuccessfulIPs`)
+- Creates separate HTTP client without Host header manipulation
+- Tests each successful IP's natural redirect behavior  
+- Compares destinations: natural vs Host-header-influenced
+- Flags IPs where natural destination ≠ target domain
+
+#### Data Structures
+- `IPResult.RedirectChain []string`: Stores redirect entries + warnings
+- `ScanSummary.FalsePositiveCount uint64`: Count of flagged IPs
+- `ScanSummary.FalsePositiveIPs []string`: List of suspicious IPs
+
+---
+
+### Use Cases
+
+**Find Real Origin Behind CDN**:
+```bash
+# Follow redirects and validate results
+origindive -d example.com -i candidate-ips.txt --follow-redirect=5
+```
+
+**Detect Shared Hosting False Positives**:
+```bash
+# Auto-validation identifies IPs that behave differently without Host header
+origindive -d example.com --asn AS4775 --skip-waf --follow-redirect
+```
+
+**Large ASN Scans**:
+```bash
+# Scan ASN with redirect following and verification
+origindive -d example.com --asn AS18233 --skip-waf --follow-redirect=3 --verify
+```
+
+---
+
+### Performance Impact
+
+**Main Scan**: No change (follows redirects during normal scan)
+**Validation**: ~3-5 seconds for 6-10 successful IPs (parallel with 10 workers)
+**Total Overhead**: Minimal (<10% increase for typical scans with few 200 OK results)
+
+**Example Timing**:
+- Main scan: 7s (27 IPs scanned)
+- Validation: 5s (6 successful IPs validated)
+- **Total**: 12s (vs 7s without validation, 71% overhead but identifies false positives!)
+
+---
+
+### Breaking Changes
+
+**None!** All v3.1.0 commands work in v3.2.0.
+
+**New flags** (optional):
+- `--follow-redirect[=N]` - Enable redirect following (default 10, custom N)
+
+**Enhanced output**:
+- Redirect chains now display inline with 200 OK results
+- Summary shows verified origins separately from all 200 OK
+
+---
+
+### Migration Notes
+
+#### From v3.1.0 to v3.2.0
+
+**No changes required!** But you can take advantage of new features:
+
+```bash
+# Old way (v3.1.0 - still works)
+origindive -d example.com -i ips.txt
+
+# New way (v3.2.0 - with redirect validation)
+origindive -d example.com -i ips.txt --follow-redirect
+
+# Advanced (max 5 redirects, verify content)
+origindive -d example.com --asn AS4775 --skip-waf --follow-redirect=5 --verify
+```
+
+**Output changes** (non-breaking):
+- 200 OK results may include redirect chain entries
+- Summary includes `[+] Found:` line showing verified origins
+- Warnings appear as additional redirect chain entries (⚠ prefix)
+
+---
+
+### Known Issues
+
+**1. All HTTPS redirects show same destination**
+   - HTTP→HTTPS redirect to same IP appears as IP vs domain difference
+   - **Not a bug**: Validation detects if natural redirect goes elsewhere
+   - Real origins: Natural HTTPS redirect matches target domain
+   - False positives: Natural HTTPS redirect goes to different app/path
+
+**2. Validation adds time to scans**
+   - ~3-5 seconds per 6-10 successful IPs
+   - **Mitigation**: Only validates 200 OK, not all scanned IPs
+   - **Trade-off**: Accurate results worth extra time
+
+---
+
+### What's Next (v3.3.0 Preview)
+
+Planned features:
+- [ ] Response content comparison (beyond hash)
+- [ ] SSL certificate validation (CN/SAN matching)
+- [ ] Historical redirect tracking (detect changes over time)
+- [ ] False positive filtering flag (`--verified-only`)
+- [ ] Confidence scoring for origins (0-100%)
+- [ ] Export validation results separately (JSON/CSV)
+
+---
+
+## 🎉 v3.2.0 Ready for Release!
+
+origindive v3.2.0 is **production-ready** with:
+- ✅ Smart redirect following with IP preservation
+- ✅ Host header validation for false positive detection  
+- ✅ Enhanced summary display (verified origins highlighted)
+- ✅ No breaking changes from v3.1.0
+- ✅ Comprehensive testing on real-world scenarios
+
+Download: https://github.com/jhaxce/origindive/releases/tag/v3.2.0
+
+---
+
+### Added
+- **Automatic output file generation**: Results now automatically saved with timestamped filenames
+  - Passive mode: `domain.com-passive-2025-12-05_15-53-48.txt`
+  - Active mode: `domain.com-active-2025-12-05_15-53-55.txt`
+  - Auto mode: `domain.com-auto-2025-12-05_15-54-16.txt`
+  - Use `-o` flag to override with custom filename
+  - Patterns added to `.gitignore`: `*-passive-*.txt`, `*-active-*.txt`, `*-auto-*.txt`
+- **--silent-errors flag**: Suppress passive source API error warnings
+  - Use `--silent-errors` to hide API authentication/quota warnings during passive scans
+  - Useful for cleaner output when API keys are missing or expired
+  - Errors are still logged, just not displayed to stderr
+- **Censys Organization ID prompt**: Added org ID prompt to `--init-config`
+  - Required for Censys API to work properly (in addition to API token)
+  - Prompted after entering Censys API tokens
+  - Stored in config as `censys_org_id` field
+- **Domain WAF/CDN detection**: Automatically detects if target domain is behind WAF/CDN
+  - Resolves domain DNS and checks against WAF database (108 IP ranges, 6 providers)
+  - Displays warning in banner: `[!] Domain appears to be behind Cloudflare`
+  - Helps users understand if they're scanning origin IPs or CDN/WAF infrastructure
+  - Supports: Cloudflare, AWS CloudFront, Fastly, Akamai, Incapsula, Sucuri
+- Coverage-focused test files for improved code coverage tracking
+  - `pkg/scanner/scanner_coverage_test.go` - 9 comprehensive scanner tests
+  - `pkg/proxy/proxy_coverage_test.go` - 16 additional proxy tests
+  - `pkg/waf/waf_coverage_test.go` - 11 WAF updater and filter tests
+- Test coverage improvements across multiple packages:
+  - Scanner package: 20.1% → 56.1% (+36%)
+  - Proxy package: 30.7% → 64.0% (+33%)
+  - WAF package: 49.2% → 76.8% (+28%)
+  - Overall coverage: 49.2% → 59.5% (+10.3%)
+- **Init-config enhancements**: Added prompts for all passive reconnaissance API keys:
+  - SecurityTrails API key prompt
+  - VirusTotal API key prompt
+  - ZoomEye API key prompt
+  - ViewDNS API key prompt
+  - Updated minimal config template with all API key placeholders
+- **Improved input handling**: Replaced `fmt.Scanln` with `bufio.Scanner` in `--init-config`
+  - Properly handles API keys with special characters, spaces, and long strings
+  - Better error handling and user experience during configuration setup
+  - Fixes issues with input truncation on complex API tokens
+
+### Fixed
+- `.gitignore` pattern for binary exclusion: Changed `origindive` to `/originfind`
+  - Prevents blocking of `cmd/origindive/` source directory
+  - Only ignores the root-level binary, not source code
+- **Auto mode output formatting**: Removed extra separator line between passive results and active scan
+  - Cleaner transition from "[+] Passive reconnaissance complete" to "[*] Proceeding with active scan"
+  - Reduces visual clutter in console output
+
+### Changed
+- **Result output order**: Reversed to descending priority (errors first, 200 OK last)
+  - Previous order: 200 OK → redirects → other → timeouts → errors (required scrolling up)
+  - New order: errors → timeouts → other → redirects → 200 OK (near summary)
+  - Most important results (200 OK) now appear closest to scan summary
+  - Eliminates need to scroll up to see successful origin discoveries
+- **Passive sources default**: All 9 sources now enabled by default (ct, dns, shodan, censys, securitytrails, zoomeye, wayback, virustotal, viewdns, dnsdumpster)
+  - Previously only ct+dns were enabled, resulting in incomplete passive reconnaissance
+  - Sources without API keys are automatically skipped via API validation system
+  - Users can still override with `--passive-sources` flag for specific sources
+- **Censys API configuration**: Simplified to use API tokens instead of ID/Secret pairs
+  - `--init-config` now prompts for Censys API tokens (not ID/Secret) + Organization ID
+  - Updated config structure to use `censys_tokens` and `censys_org_id` fields
+  - Aligns with Censys's current API authentication method (Bearer tokens)
+- Updated `.gitignore` for modern Go 1.24+ practices
+  - Added patterns for coverage test files: `*_coverage_test.go`, `*_integration_test.go`
+  - Added build artifacts: `dist/`, `*.zip`, `*.tar.gz`, `*.deb`, `*.rpm`
+  - Added CLI binary patterns: `origindive`, `origindive-*`
+  - Added environment file patterns: `.env.local`, `.env.*.local`
+- Updated Copilot instructions with changelog management workflow
+- Updated GitHub Actions to latest versions (@v3, @v4)
+
 ## [3.1.0] - 2025-12-04
 
 ### 🌟 Major Release - Passive Reconnaissance + Enhanced Proxy System

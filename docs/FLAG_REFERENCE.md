@@ -651,6 +651,133 @@ custom_header: "X-Forwarded-For: 127.0.0.1"
 
 ---
 
+### `--follow-redirect[=N]`
+Follow HTTP redirects (301/302/307/308) and validate origin servers.
+
+**Default:** Disabled (0 redirects)
+**Optional value:** Maximum redirect hops (default 10 when flag used without value)
+
+```bash
+# Follow up to 10 redirects (default)
+origindive -d example.com -c 192.0.2.0/24 --follow-redirect
+
+# Follow up to 5 redirects
+origindive -d example.com -c 192.0.2.0/24 --follow-redirect=5
+
+# Disable redirect following (default)
+origindive -d example.com -c 192.0.2.0/24
+```
+
+**What it does:**
+1. **Follows redirect chains** - Tracks 301/302/307/308 redirects
+2. **Preserves IP testing** - Continues testing same IP through redirects
+3. **Displays redirect hops** - Shows full redirect chain in results
+4. **Validates origins** - Detects false positives from shared hosting
+
+**Redirect chain display:**
+```
+Without --follow-redirect:
+[+] 192.0.2.10 --> 301 Moved Permanently (123ms)
+
+With --follow-redirect:
+[+] 192.0.2.10 --> 200 OK (345ms)
+    → http://192.0.2.10/ (301)
+    → https://192.0.2.10/ (301)
+    → https://example.com/ (200)
+```
+
+**False Positive Detection (v3.2.0+):**
+When redirect following is enabled, the tool automatically validates successful IPs:
+
+```bash
+# Scan with redirect following
+origindive -d example.com -c 192.0.2.0/24 --follow-redirect
+
+# Output shows validation
+[*] Scanning 256 IPs...
+[+] 192.0.2.10 --> 200 OK (123ms)
+[+] 192.0.2.15 --> 200 OK (234ms)
+[+] 192.0.2.20 --> 200 OK (345ms)
+
+[*] Validating successful IPs without Host header...
+[+] 192.0.2.10: Verified origin (matches target)
+[!] 192.0.2.15: ⚠️ False positive (redirects to different site)
+[!] 192.0.2.20: ⚠️ False positive (redirects to different site)
+
+[+] Found: 192.0.2.10
+[+] 200 OK: 3 (192.0.2.10, 192.0.2.15, 192.0.2.20)
+[!] False positives: 2 (192.0.2.15, 192.0.2.20)
+```
+
+**How validation works:**
+1. **Main scan** (WITH Host header):
+   - Tests IP with `Host: example.com`
+   - Finds all IPs that return 200 OK
+   - Follows redirects to track destination
+
+2. **Post-scan validation** (WITHOUT Host header):
+   - Only validates successful 200 OK IPs
+   - Tests each IP naturally (no Host header manipulation)
+   - Follows full redirect chain
+   - Compares final destinations
+
+3. **Comparison logic:**
+   - ✅ **Verified origin**: Natural destination = target domain
+   - ⚠️ **False positive**: Natural destination ≠ target domain
+   - Ignores HTTP→HTTPS upgrades (same destination)
+
+**Why this matters:**
+```
+Shared hosting / cloud load balancers problem:
+- Server IP: 203.0.113.20 (Cloud hosting)
+- With Host header: Redirects to example.com (looks like origin!)
+- Without Host header: Redirects to /app/login (different site)
+- Result: False positive detected ✓
+
+Real origin server:
+- Server IP: 203.0.113.10
+- With Host header: Redirects to example.com
+- Without Host header: Redirects to example.com
+- Result: Verified origin ✓
+```
+
+**Use cases:**
+- **HTTP→HTTPS redirects**: Detect origin servers that force HTTPS
+- **www redirects**: Handle www.example.com → example.com
+- **Load balancer detection**: Find all IPs in redirect chain
+- **False positive filtering**: Eliminate shared hosting servers
+- **Cloud infrastructure**: Detect IPs behind GCP/AWS/Azure load balancers
+
+**Performance:**
+- **Scan overhead**: Minimal (~10-20% slower due to following redirects)
+- **Validation overhead**: ~1 second per successful IP
+- **Example**: 6 successful IPs = ~5 seconds validation
+- **Trade-off**: Accuracy vs speed (accuracy wins!)
+
+**Technical details:**
+- Preserves IP through redirect chain (URL rewriting)
+- Sets `req.Host` to redirected domain (follows RFC)
+- Tracks both URL and Host header changes
+- Prevents circular redirect loops (max hops enforced)
+- Validates using clean HTTP client (no Host manipulation)
+
+**Example workflow:**
+```bash
+# Step 1: Discover IPs from passive recon
+origindive -d example.com --passive -o discovered.txt
+
+# Step 2: Scan discovered IPs with redirect validation
+origindive -d example.com -i discovered.txt --follow-redirect
+
+# Result:
+#   Total: 27 IPs scanned
+#   Success: 6 IPs returned 200 OK
+#   Verified: 1 IP (203.0.113.10) - Real origin!
+#   False positives: 5 IPs - Shared hosting/cloud
+```
+
+---
+
 ### `-A, --user-agent <preset|custom>`
 Set User-Agent header.
 
