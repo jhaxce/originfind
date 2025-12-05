@@ -18,6 +18,7 @@
 [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fjhaxce%2Forigindive.svg?type=shield&issueType=security)](https://app.fossa.com/projects/git%2Bgithub.com%2Fjhaxce%2Forigindive?ref=badge_shield&issueType=security)
 [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fjhaxce%2Forigindive.svg?type=shield&issueType=license)](https://app.fossa.com/projects/git%2Bgithub.com%2Fjhaxce%2Forigindive?ref=badge_shield&issueType=license)
 [![Go Reference](https://pkg.go.dev/badge/github.com/jhaxce/origindive.svg)](https://pkg.go.dev/github.com/jhaxce/origindive)
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fjhaxce%2Forigindive.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Fjhaxce%2Forigindive?ref=badge_shield)
 
 ## 📋 Table of Contents
 
@@ -1046,6 +1047,9 @@ Contributions welcome! Please read [CONTRIBUTING.md](.github/CONTRIBUTING.md).
 ## 📄 License
 
 MIT License - see [LICENSE](LICENSE) for details.
+
+
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fjhaxce%2Forigindive.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2Fjhaxce%2Forigindive?ref=badge_large)
 
 ## 🙏 Acknowledgments
 
