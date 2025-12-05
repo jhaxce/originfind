@@ -142,7 +142,7 @@ func getSubdomains(ctx context.Context, domain, apiKey string, timeout time.Dura
 	}
 
 	req.Header.Set("APIKEY", apiKey)
-	req.Header.Set("User-Agent", "origindive/3.1.0")
+	req.Header.Set("User-Agent", "origindive/1.0")
 	req.Header.Set("Accept", "application/json")
 
 	resp, err := client.Do(req)
@@ -188,7 +188,7 @@ func getHistoricalIPs(ctx context.Context, domain, apiKey string, timeout time.D
 	}
 
 	req.Header.Set("APIKEY", apiKey)
-	req.Header.Set("User-Agent", "origindive/3.1.0")
+	req.Header.Set("User-Agent", "origindive/1.0")
 	req.Header.Set("Accept", "application/json")
 
 	resp, err := client.Do(req)

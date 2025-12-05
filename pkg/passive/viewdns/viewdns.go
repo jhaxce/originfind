@@ -112,7 +112,7 @@ func reverseIPWithKey(ctx context.Context, ipAddr, apiKey string, timeout time.D
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
-	req.Header.Set("User-Agent", "origindive/3.1.0")
+	req.Header.Set("User-Agent", "origindive/1.0")
 
 	resp, err := client.Do(req)
 	if err != nil {

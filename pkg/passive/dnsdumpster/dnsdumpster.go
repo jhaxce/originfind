@@ -92,7 +92,7 @@ func searchWithKey(ctx context.Context, domain, apiKey string, timeout time.Dura
 
 	// DNSDumpster uses X-API-Key header
 	req.Header.Set("X-API-Key", apiKey)
-	req.Header.Set("User-Agent", "origindive/3.1.0")
+	req.Header.Set("User-Agent", "origindive/1.0")
 
 	resp, err := client.Do(req)
 	if err != nil {

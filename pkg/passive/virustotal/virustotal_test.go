@@ -42,7 +42,7 @@ func TestSearchSubdomains_Success(t *testing.T) {
 		}
 
 		// Check User-Agent
-		if r.Header.Get("User-Agent") != "origindive/3.1.0" {
+		if r.Header.Get("User-Agent") != "origindive/1.0" {
 			t.Errorf("Unexpected User-Agent: %s", r.Header.Get("User-Agent"))
 		}
 

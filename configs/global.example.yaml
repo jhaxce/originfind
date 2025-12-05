@@ -14,8 +14,8 @@
 # Premium datacenter and residential proxies with high reliability
 # Free tier: 10 proxies with limited bandwidth
 # Paid plans: $1.38/GB datacenter, $2.99/GB residential
-# Get API key: https://proxy2.webshare.io/userapi/credentials
-# Example account: user@example.com
+# Get API key: https://dashboard.webshare.io/userapi/keys
+# Documentation: https://apidocs.webshare.io/
 webshare_keys:
   - "YOUR_WEBSHARE_API_KEY_HERE"
   # - "BACKUP_KEY_FOR_ROTATION"
@@ -31,7 +31,9 @@ webshare_keys:
 # Multiple keys per service for automatic rotation/failover
 # ============================================================
 
-# Shodan API keys (https://account.shodan.io/)
+# Shodan API keys
+# Get API key: https://account.shodan.io/
+# Documentation: https://developer.shodan.io/api
 # Add multiple keys - tool will rotate through them when one hits rate limit
 # Used for: IP lookups, port scanning history, service detection
 shodan_keys:
@@ -39,8 +41,9 @@ shodan_keys:
   - "YOUR_SECOND_SHODAN_KEY_HERE"
   # - "YOUR_THIRD_SHODAN_KEY_HERE"
 
-# Censys API credentials (https://search.censys.io/account/api)
-# Get your Personal Access Token (PAT) from the API settings page
+# Censys API credentials
+# Get API token: https://accounts.censys.io/settings/personal-access-tokens
+# Documentation: https://docs.censys.com/reference/get-started
 # PAT tokens use Bearer authentication (no API ID needed)
 # For paid plans: Add your organization_id for higher rate limits
 # Used for: Certificate searches, IP lookups, service detection
@@ -54,7 +57,49 @@ censys_tokens:
 # Free tier users: Leave empty or omit this field
 censys_org_id: ""  # e.g., "11111111-2222-3333-4444-555555555555"
 
-# Webshare.io Proxy API keys (https://proxy2.webshare.io/userapi/credentials)
+# SecurityTrails API keys
+# Get API key: https://securitytrails.com/app/account/credentials
+# Documentation: https://securitytrails.com/app/account/docs-and-examples
+# Used for: DNS history, subdomain enumeration, WHOIS data
+securitytrails_keys:
+  - "YOUR_SECURITYTRAILS_KEY_HERE"
+  # - "BACKUP_SECURITYTRAILS_KEY"
+
+# VirusTotal API keys
+# Get API key: https://www.virustotal.com/gui/user/[USERNAME]/apikey
+# Documentation: https://docs.virustotal.com/reference/overview
+# Used for: IP reputation, domain analysis, malware detection
+virustotal_keys:
+  - "YOUR_VIRUSTOTAL_KEY_HERE"
+  # - "BACKUP_VIRUSTOTAL_KEY"
+
+# ZoomEye API keys
+# Get API key: https://www.zoomeye.ai/profile
+# Documentation: https://www.zoomeye.ai/doc
+# Used for: Search engines for internet-connected devices
+zoomeye_keys:
+  - "YOUR_ZOOMEYE_KEY_HERE"
+  # - "BACKUP_ZOOMEYE_KEY"
+
+# ViewDNS API keys
+# Get API key: https://viewdns.info/dashboard/api/account-details/
+# Documentation: https://viewdns.info/api/
+# Used for: Reverse IP lookup, DNS records, WHOIS
+viewdns_keys:
+  - "YOUR_VIEWDNS_KEY_HERE"
+  # - "BACKUP_VIEWDNS_KEY"
+
+# DNSDumpster API keys
+# Get API key: https://dnsdumpster.com/my-account/
+# Documentation: https://dnsdumpster.com/developer/
+# Used for: DNS reconnaissance, subdomain discovery
+dnsdumpster_keys:
+  - "YOUR_DNSDUMPSTER_KEY_HERE"
+  # - "BACKUP_DNSDUMPSTER_KEY"
+
+# Webshare Proxy API keys
+# Get API key: https://dashboard.webshare.io/userapi/keys
+# Documentation: https://apidocs.webshare.io/
 # Premium proxy service with high-quality datacenter and residential IPs
 # Free tier: 10 proxies with limited bandwidth
 # Paid plans: $1.38/GB datacenter, $2.99/GB residential

@@ -36,7 +36,7 @@ func TestSearchHostname_EmptyAPIKeys(t *testing.T) {
 func TestSearchHostname_Success(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Check User-Agent
-		if r.Header.Get("User-Agent") != "origindive/3.1.0" {
+		if r.Header.Get("User-Agent") != "origindive/1.0" {
 			t.Errorf("Unexpected User-Agent: %s", r.Header.Get("User-Agent"))
 		}
 

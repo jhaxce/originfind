@@ -100,7 +100,7 @@ func searchWithKey(ctx context.Context, domain, apiKey string, timeout time.Dura
 
 	// VirusTotal uses x-apikey header
 	req.Header.Set("x-apikey", apiKey)
-	req.Header.Set("User-Agent", "origindive/3.1.0")
+	req.Header.Set("User-Agent", "origindive/1.0")
 
 	resp, err := client.Do(req)
 	if err != nil {

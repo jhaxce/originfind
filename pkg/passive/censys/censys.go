@@ -159,7 +159,7 @@ func searchWithToken(ctx context.Context, domain, token, orgID string, timeout t
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
-	req.Header.Set("User-Agent", "origindive/3.1.0")
+	req.Header.Set("User-Agent", "origindive/1.0")
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -174,13 +174,27 @@ func searchWithToken(ctx context.Context, domain, token, orgID string, timeout t
 
 	// Check for HTTP errors
 	if resp.StatusCode != http.StatusOK {
-		// Try to parse error from JSON
+		// Try to parse error from JSON with nested error structure
+		var errorResponse struct {
+			Error struct {
+				Code    int    `json:"code"`
+				Status  string `json:"status"`
+				Reason  string `json:"reason"`
+				Message string `json:"message"`
+				Detail  string `json:"detail"`
+			} `json:"error"`
+		}
+		if json.Unmarshal(body, &errorResponse) == nil && errorResponse.Error.Reason != "" {
+			return nil, fmt.Errorf("Censys API error (HTTP %d): %s", resp.StatusCode, errorResponse.Error.Reason)
+		}
+
+		// Fallback: Try simple error field
 		var errResp CensysResponse
 		if json.Unmarshal(body, &errResp) == nil && errResp.Error != "" {
 			return nil, fmt.Errorf("Censys API error (HTTP %d): %s", resp.StatusCode, errResp.Error)
 		}
 
-		// Truncate body for error message
+		// Last resort: Truncate body for error message
 		bodyStr := string(body)
 		if len(bodyStr) > 200 {
 			bodyStr = bodyStr[:200] + "..."

@@ -137,8 +137,7 @@ func main() {
 						}
 					}
 					if !config.Quiet {
-						fmt.Printf("%s[*] Expanded %d IPs to %s networks for scanning%s\n", colors.CYAN, len(passiveIPs), config.ExpandNetmask, colors.NC)
-						fmt.Printf("%s═══════════════════════════════════════════════════════════════%s\n\n", colors.CYAN, colors.NC)
+						fmt.Printf("%s[*] Expanded %d IPs to %s networks for scanning%s\n\n", colors.CYAN, len(passiveIPs), config.ExpandNetmask, colors.NC)
 					}
 				} else {
 					// Regular mode: scan discovered IPs only
@@ -592,7 +591,8 @@ func initializeGlobalConfig() error {
 	fmt.Println(strings.Repeat("─", 63))
 
 	// Shodan keys
-	fmt.Printf("\n%sShodan API Keys%s (https://account.shodan.io/)\n", colors.CYAN, colors.NC)
+	fmt.Printf("\n%sShodan API Keys%s\n", colors.CYAN, colors.NC)
+	fmt.Printf("Get API key: https://account.shodan.io/ | Docs: https://developer.shodan.io/api\n")
 	fmt.Println("Enter keys one at a time (empty line to finish):")
 	var shodanKeys []string
 	for i := 1; ; i++ {
@@ -612,7 +612,8 @@ func initializeGlobalConfig() error {
 	}
 
 	// Censys API tokens
-	fmt.Printf("\n%sCensys API Tokens%s (https://search.censys.io/account/api)\n", colors.CYAN, colors.NC)
+	fmt.Printf("\n%sCensys API Tokens%s\n", colors.CYAN, colors.NC)
+	fmt.Printf("Get API token: https://accounts.censys.io/settings/personal-access-tokens | Docs: https://docs.censys.com/reference/get-started\n")
 	fmt.Println("Enter API tokens one at a time (empty line to finish):")
 	var censysTokens []string
 	for i := 1; ; i++ {
@@ -643,7 +644,8 @@ func initializeGlobalConfig() error {
 	}
 
 	// SecurityTrails keys
-	fmt.Printf("\n%sSecurityTrails API Keys%s (https://securitytrails.com/app/account/credentials)\n", colors.CYAN, colors.NC)
+	fmt.Printf("\n%sSecurityTrails API Keys%s\n", colors.CYAN, colors.NC)
+	fmt.Printf("Get API key: https://securitytrails.com/app/account/credentials | Docs: https://securitytrails.com/app/account/docs-and-examples\n")
 	fmt.Println("Enter keys one at a time (empty line to finish):")
 	var securitytrailsKeys []string
 	for i := 1; ; i++ {
@@ -663,7 +665,8 @@ func initializeGlobalConfig() error {
 	}
 
 	// VirusTotal keys
-	fmt.Printf("\n%sVirusTotal API Keys%s (https://www.virustotal.com/gui/user/[username]/apikey)\n", colors.CYAN, colors.NC)
+	fmt.Printf("\n%sVirusTotal API Keys%s\n", colors.CYAN, colors.NC)
+	fmt.Printf("Get API key: https://www.virustotal.com/gui/user/[USERNAME]/apikey | Docs: https://docs.virustotal.com/reference/overview\n")
 	fmt.Println("Enter keys one at a time (empty line to finish):")
 	var virustotalKeys []string
 	for i := 1; ; i++ {
@@ -683,7 +686,8 @@ func initializeGlobalConfig() error {
 	}
 
 	// ZoomEye keys
-	fmt.Printf("\n%sZoomEye API Keys%s (https://www.zoomeye.org/profile)\n", colors.CYAN, colors.NC)
+	fmt.Printf("\n%sZoomEye API Keys%s\n", colors.CYAN, colors.NC)
+	fmt.Printf("Get API key: https://www.zoomeye.ai/profile | Docs: https://www.zoomeye.ai/doc\n")
 	fmt.Println("Enter keys one at a time (empty line to finish):")
 	var zoomeyeKeys []string
 	for i := 1; ; i++ {
@@ -703,7 +707,8 @@ func initializeGlobalConfig() error {
 	}
 
 	// ViewDNS keys
-	fmt.Printf("\n%sViewDNS API Keys%s (https://viewdns.info/api/)\n", colors.CYAN, colors.NC)
+	fmt.Printf("\n%sViewDNS API Keys%s\n", colors.CYAN, colors.NC)
+	fmt.Printf("Get API key: https://viewdns.info/dashboard/api/account-details/ | Docs: https://viewdns.info/api/\n")
 	fmt.Println("Enter keys one at a time (empty line to finish):")
 	var viewdnsKeys []string
 	for i := 1; ; i++ {
@@ -720,6 +725,68 @@ func initializeGlobalConfig() error {
 	if len(viewdnsKeys) > 0 {
 		config.ViewDNSKeys = viewdnsKeys
 		fmt.Printf("%s✓ Added %d ViewDNS key(s)%s\n", colors.GREEN, len(viewdnsKeys), colors.NC)
+	}
+
+	// DNSDumpster keys
+	fmt.Printf("\n%sDNSDumpster API Keys%s\n", colors.CYAN, colors.NC)
+	fmt.Printf("Get API key: https://dnsdumpster.com/my-account/ | Docs: https://dnsdumpster.com/developer/\n")
+	fmt.Println("Enter keys one at a time (empty line to finish):")
+	var dnsdumpsterKeys []string
+	for i := 1; ; i++ {
+		fmt.Printf("  Key #%d: ", i)
+		if !scanner.Scan() {
+			break
+		}
+		key := strings.TrimSpace(scanner.Text())
+		if key == "" {
+			break
+		}
+		dnsdumpsterKeys = append(dnsdumpsterKeys, key)
+	}
+	if len(dnsdumpsterKeys) > 0 {
+		config.DNSDumpsterKeys = dnsdumpsterKeys
+		fmt.Printf("%s✓ Added %d DNSDumpster key(s)%s\n", colors.GREEN, len(dnsdumpsterKeys), colors.NC)
+	}
+
+	// Webshare proxy keys
+	fmt.Printf("\n%sWebshare Proxy API Keys%s\n", colors.CYAN, colors.NC)
+	fmt.Printf("Get API key: https://dashboard.webshare.io/userapi/keys | Docs: https://apidocs.webshare.io/\n")
+	fmt.Println("Enter keys one at a time (empty line to finish):")
+	var webshareKeys []string
+	for i := 1; ; i++ {
+		fmt.Printf("  Key #%d: ", i)
+		if !scanner.Scan() {
+			break
+		}
+		key := strings.TrimSpace(scanner.Text())
+		if key == "" {
+			break
+		}
+		webshareKeys = append(webshareKeys, key)
+	}
+	if len(webshareKeys) > 0 {
+		config.WebshareKeys = webshareKeys
+		fmt.Printf("%s✓ Added %d Webshare key(s)%s\n", colors.GREEN, len(webshareKeys), colors.NC)
+
+		// Optional: Webshare Plan IDs
+		fmt.Printf("\n%sWebshare Plan IDs (optional - press Enter to skip)%s\n", colors.CYAN, colors.NC)
+		fmt.Println("Enter plan IDs one at a time (maps 1:1 with keys, empty line to finish):")
+		var websharePlanIDs []string
+		for i := 1; i <= len(webshareKeys); i++ {
+			fmt.Printf("  Plan ID for Key #%d: ", i)
+			if !scanner.Scan() {
+				break
+			}
+			planID := strings.TrimSpace(scanner.Text())
+			if planID == "" {
+				break
+			}
+			websharePlanIDs = append(websharePlanIDs, planID)
+		}
+		if len(websharePlanIDs) > 0 {
+			config.WebsharePlanIDs = websharePlanIDs
+			fmt.Printf("%s✓ Added %d Plan ID(s)%s\n", colors.GREEN, len(websharePlanIDs), colors.NC)
+		}
 	}
 
 	fmt.Printf("\n%sDefault Settings (press Enter to use defaults shown)%s\n", colors.GREEN, colors.NC)
@@ -773,7 +840,6 @@ func initializeGlobalConfig() error {
 	fmt.Printf("\nYou can now run scans without specifying these settings:\n")
 	fmt.Printf("  %sorigindive -d example.com -n 192.168.1.0/24%s\n\n", colors.CYAN, colors.NC)
 	fmt.Printf("Edit config anytime at: %s%s%s\n", colors.YELLOW, configPath, colors.NC)
-	fmt.Printf("View example config at: %s./configs/global.example.yaml%s\n", colors.YELLOW, colors.NC)
 
 	return nil
 }
