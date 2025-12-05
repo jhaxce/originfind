@@ -286,6 +286,17 @@ func (s *Scanner) Scan(ctx context.Context) (*core.ScanResult, error) {
 	// Wait for collector
 	collectorWg.Wait()
 
+	// Validate successful IPs if redirect following is enabled
+	// This checks if IPs behave the same without Host header (detects shared hosting)
+	if s.config.MaxRedirects > 0 && len(result.Success) > 0 {
+		fmt.Println("\n[*] Validating successful IPs without Host header...")
+		falsePositiveIPs := s.validateSuccessfulIPs(ctx, result.Success)
+		if len(falsePositiveIPs) > 0 {
+			result.Summary.FalsePositiveCount = uint64(len(falsePositiveIPs))
+			result.Summary.FalsePositiveIPs = falsePositiveIPs
+		}
+	}
+
 	// Finalize result
 	result.EndTime = time.Now()
 	result.Summary.TotalIPs = totalIPs
@@ -406,6 +417,167 @@ func (s *Scanner) scanIP(ctx context.Context, ipAddr net.IP) *core.IPResult {
 	// Perform request
 	startTime := time.Now()
 	client := s.getClient() // Use proxy-aware client
+
+	// If redirect following is enabled, first check natural redirect (without Host header)
+	// This helps detect shared hosting where Host header influences redirect destination
+	var naturalRedirect string
+	if s.config.MaxRedirects > 0 {
+		testReq, _ := http.NewRequestWithContext(ctx, s.config.HTTPMethod, url, nil)
+		testClient := &http.Client{
+			Transport: client.Transport,
+			Timeout:   client.Timeout,
+			CheckRedirect: func(req *http.Request, via []*http.Request) error {
+				return http.ErrUseLastResponse // Don't follow, just capture first redirect
+			},
+		}
+		testResp, err := testClient.Do(testReq)
+		if err == nil {
+			defer testResp.Body.Close()
+			if testResp.StatusCode >= 300 && testResp.StatusCode < 400 {
+				naturalRedirect = testResp.Header.Get("Location")
+			}
+		}
+	}
+
+	// Handle redirects if enabled
+	var redirectChain []string
+	var customClient *http.Client
+	if s.config.MaxRedirects > 0 {
+		// Create a custom client with redirect tracking
+		initialURL := url
+		originalIP := ipAddr.String()
+		targetDomain := s.config.Domain
+
+		customClient = &http.Client{
+			Transport: client.Transport,
+			Timeout:   client.Timeout,
+			CheckRedirect: func(req *http.Request, via []*http.Request) error {
+				// Record each redirect hop
+				if len(via) > 0 {
+					prevReq := via[len(via)-1]
+					statusCode := 301 // Default
+					if prevReq.Response != nil {
+						statusCode = prevReq.Response.StatusCode
+					}
+					hopInfo := fmt.Sprintf("%d %s -> %s", statusCode, prevReq.URL.String(), req.URL.String())
+					redirectChain = append(redirectChain, hopInfo)
+
+					// Check if first redirect points to target domain
+					// If it redirects to the IP itself or a different domain, it's not a real origin
+					redirectHost := req.URL.Host
+					// Remove port from host for comparison
+					if idx := strings.Index(redirectHost, ":"); idx > 0 {
+						redirectHost = redirectHost[:idx]
+					}
+
+					// If we have a natural redirect that differs from the current redirect location,
+					// validate that the natural redirect also contains the target domain
+					if len(via) == 1 && naturalRedirect != "" {
+						// Parse natural redirect URL to extract host
+						naturalHost := naturalRedirect
+						if strings.HasPrefix(naturalHost, "http://") {
+							naturalHost = naturalHost[7:]
+						} else if strings.HasPrefix(naturalHost, "https://") {
+							naturalHost = naturalHost[8:]
+						}
+						// Extract just the hostname part
+						if idx := strings.Index(naturalHost, "/"); idx > 0 {
+							naturalHost = naturalHost[:idx]
+						}
+						if idx := strings.Index(naturalHost, ":"); idx > 0 {
+							naturalHost = naturalHost[:idx]
+						}
+
+						// If natural redirect doesn't contain target domain, this is shared hosting
+						if !strings.Contains(naturalHost, targetDomain) && naturalHost != originalIP {
+							// Natural redirect points elsewhere - stop following
+							return http.ErrUseLastResponse
+						}
+					}
+
+					// If first redirect doesn't contain target domain, stop following
+					if len(via) == 1 && !strings.Contains(redirectHost, targetDomain) {
+						// First redirect doesn't point to target domain - this is shared hosting
+						// Don't follow further redirects
+						return http.ErrUseLastResponse
+					}
+
+					// Rewrite redirect URL to keep testing the same IP
+					// Instead of following redirect to new domain, rewrite URL to use original IP
+					redirectedDomain := req.URL.Host
+					req.URL.Host = originalIP
+					req.Host = redirectedDomain // Keep Host header as redirected domain
+				}
+
+				// Check if we've exceeded the max redirects
+				if len(via) >= s.config.MaxRedirects {
+					return fmt.Errorf("stopped after %d redirects", s.config.MaxRedirects)
+				}
+
+				return nil
+			},
+		}
+		resp, err := customClient.Do(req)
+		result.ResponseTime = time.Since(startTime).String()
+
+		if err != nil {
+			// Check for timeout
+			if ctx.Err() == context.DeadlineExceeded {
+				result.Status = "timeout"
+			} else {
+				result.Status = "error"
+				result.Error = err.Error()
+			}
+			return result
+		}
+		defer resp.Body.Close()
+
+		// Record response and redirect chain
+		result.HTTPCode = resp.StatusCode
+		result.Server = resp.Header.Get("Server")
+		result.ContentType = resp.Header.Get("Content-Type")
+
+		// If final URL differs from initial URL, add a redirect note
+		finalURL := resp.Request.URL.String()
+		if finalURL != initialURL && len(redirectChain) == 0 {
+			// Automatic redirect (e.g., HTTP -> HTTPS or path change by Transport)
+			redirectChain = append(redirectChain, fmt.Sprintf("(automatic) %s -> %s", initialURL, finalURL))
+		}
+		result.RedirectChain = redirectChain
+
+		// Extract content if enabled and status is 200
+		if s.config.VerifyContent && resp.StatusCode == 200 {
+			// Read response body (limit to 64KB for safety)
+			body, err := io.ReadAll(io.LimitReader(resp.Body, 64*1024))
+			if err == nil {
+				// Calculate SHA256 hash
+				hash := sha256.Sum256(body)
+				result.BodyHash = hex.EncodeToString(hash[:])[:16] // First 16 chars
+
+				// Extract HTML title if Content-Type is HTML
+				if strings.Contains(strings.ToLower(result.ContentType), "html") {
+					result.Title = extractTitle(string(body))
+				}
+			}
+		}
+
+		switch {
+		case resp.StatusCode == 200:
+			result.Status = "200"
+		case resp.StatusCode >= 300 && resp.StatusCode < 400:
+			result.Status = "3xx"
+		case resp.StatusCode >= 400 && resp.StatusCode < 500:
+			result.Status = "4xx"
+		case resp.StatusCode >= 500:
+			result.Status = "5xx"
+		default:
+			result.Status = fmt.Sprintf("%d", resp.StatusCode)
+		}
+
+		return result
+	}
+
+	// Standard request without redirect tracking
 	resp, err := client.Do(req)
 	result.ResponseTime = time.Since(startTime).String()
 
@@ -492,6 +664,131 @@ func (s *Scanner) SetProgressCallback(callback func(scanned, total uint64)) {
 // SetResultCallback sets a callback for real-time result streaming
 func (s *Scanner) SetResultCallback(callback func(result *core.IPResult)) {
 	s.resultCallback = callback
+}
+
+// validateSuccessfulIPs checks if successful IPs behave the same without Host header
+// This helps detect shared hosting where the Host header influences the response
+// Returns list of IPs flagged as potential false positives
+func (s *Scanner) validateSuccessfulIPs(ctx context.Context, successIPs []*core.IPResult) []string {
+	// Follow redirects up to max, preserving IP like main scan but without Host header
+	var naturalChain []string
+	falsePositiveIPs := make([]string, 0)
+	client := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		},
+		Timeout: s.config.Timeout,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if len(via) >= s.config.MaxRedirects {
+				return http.ErrUseLastResponse
+			}
+
+			// Capture redirect in chain
+			redirectURL := req.URL.String()
+			statusCode := 301
+			if len(via) > 0 {
+				lastResp := via[len(via)-1].Response
+				if lastResp != nil {
+					statusCode = lastResp.StatusCode
+				}
+			}
+			entry := fmt.Sprintf("%d %s -> %s", statusCode, via[len(via)-1].URL.String(), redirectURL)
+			naturalChain = append(naturalChain, entry)
+
+			// Preserve IP: rewrite URL to use original IP, but don't set Host header
+			originalIP := via[0].URL.Host
+			req.URL.Host = originalIP
+			// DON'T set req.Host - that's the key difference from main scan
+
+			return nil
+		},
+	}
+
+	for _, ipResult := range successIPs {
+		// Skip if no redirect chain (direct 200 OK)
+		if len(ipResult.RedirectChain) == 0 {
+			continue
+		}
+
+		// Reset natural chain for this IP
+		naturalChain = []string{}
+
+		// Test without Host header
+		url := fmt.Sprintf("http://%s", ipResult.IP)
+		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+		if err != nil {
+			continue
+		}
+
+		// Don't set Host header - let it default to the IP
+		resp, err := client.Do(req)
+		if err != nil {
+			continue
+		}
+		resp.Body.Close()
+
+		// Compare natural chain vs Host-header chain
+		if len(naturalChain) > 0 {
+			// Extract final destination from both chains
+			lastNatural := naturalChain[len(naturalChain)-1]
+			lastWithHost := ipResult.RedirectChain[len(ipResult.RedirectChain)-1]
+
+			// Parse final destinations
+			var naturalDest, hostDest string
+			if parts := strings.Split(lastNatural, " -> "); len(parts) == 2 {
+				naturalDest = strings.TrimSpace(parts[1])
+			}
+			if parts := strings.Split(lastWithHost, " -> "); len(parts) == 2 {
+				hostDest = strings.TrimSpace(parts[1])
+			}
+
+			// Compare destinations
+			if naturalDest != "" && hostDest != "" && naturalDest != hostDest {
+				natHost := extractHost(naturalDest)
+				hostDestHost := extractHost(hostDest)
+
+				// If destinations differ and natural doesn't point to target domain
+				if natHost != hostDestHost && !strings.Contains(naturalDest, s.config.Domain) {
+					warning := fmt.Sprintf("⚠ Without Host header: %s (different from %s)", naturalDest, hostDest)
+					ipResult.RedirectChain = append(ipResult.RedirectChain, warning)
+					falsePositiveIPs = append(falsePositiveIPs, ipResult.IP)
+				}
+			}
+		}
+	}
+	return falsePositiveIPs
+}
+
+// extractHost extracts hostname from a URL string
+func extractHost(urlStr string) string {
+	host := urlStr
+	// Remove protocol
+	if idx := strings.Index(host, "://"); idx > 0 {
+		host = host[idx+3:]
+	}
+	// Remove path
+	if idx := strings.Index(host, "/"); idx > 0 {
+		host = host[:idx]
+	}
+	// Remove port
+	if idx := strings.Index(host, ":"); idx > 0 {
+		host = host[:idx]
+	}
+	return host
+}
+
+// extractPath extracts path from a URL string
+func extractPath(urlStr string) string {
+	// Remove protocol
+	path := urlStr
+	if idx := strings.Index(path, "://"); idx > 0 {
+		path = path[idx+3:]
+	}
+	// Find path start
+	if idx := strings.Index(path, "/"); idx > 0 {
+		return path[idx:]
+	}
+	return "/"
 }
 
 // getUserAgent returns the user agent string based on config

@@ -45,7 +45,7 @@ func main() {
 	autoInitializeGlobalConfig()
 
 	// Parse command line flags
-	config := parseFlags()
+	config, outputFlagProvided := parseFlags()
 
 	// Initialize colors
 	colors.Init(!config.NoColor)
@@ -97,23 +97,23 @@ func main() {
 				os.Exit(1)
 			}
 
-			// Save passive results
-			outputFile := config.OutputFile
-			if outputFile == "" {
-				// Generate default filename: domain.com-passive-2025-12-04_14-30-45.txt
-				outputFile = generatePassiveFilename(config.Domain)
-			}
-			if outputFile != "" {
+			// Save passive results if -o flag is used
+			if outputFlagProvided {
+				outputFile := config.OutputFile
+				// If -o flag is used without value, auto-generate filename
+				if outputFile == "" {
+					outputFile = generatePassiveFilename(config.Domain)
+				}
 				if err := savePassiveResults(outputFile, passiveIPs, config.Domain); err != nil {
 					fmt.Fprintf(os.Stderr, "%sError saving results: %s%s\n", colors.RED, err, colors.NC)
 					os.Exit(1)
 				}
 				fmt.Printf("%s[+] Results saved to: %s%s\n", colors.GREEN, outputFile, colors.NC)
-			} else {
-				fmt.Printf("\n%sDiscovered IPs:%s\n", colors.CYAN, colors.NC)
-				for _, ipAddr := range passiveIPs {
-					fmt.Printf("  %s\n", ipAddr)
-				}
+			}
+			// Always show results on console too
+			fmt.Printf("\n%sDiscovered IPs:%s\n", colors.CYAN, colors.NC)
+			for _, ipAddr := range passiveIPs {
+				fmt.Printf("  %s\n", ipAddr)
 			}
 			os.Exit(0)
 		}
@@ -213,8 +213,8 @@ func main() {
 		fmt.Printf("%s═══════════════════════════════════════════════════════════════%s\n\n", colors.CYAN, colors.NC)
 	}
 
-	// Generate default output filename if not specified
-	if config.OutputFile == "" {
+	// Auto-generate filename if -o flag is used without value
+	if outputFlagProvided && config.OutputFile == "" {
 		if config.Mode == core.ModeAuto {
 			config.OutputFile = generateAutoFilename(config.Domain)
 		} else {
@@ -222,7 +222,7 @@ func main() {
 		}
 	}
 
-	// Create output writer
+	// Create output writer (empty string means console only)
 	formatter := output.NewFormatter(config.Format, !config.NoColor, config.ShowAll)
 	writer, err := output.NewWriter(config.OutputFile, formatter, config.Quiet)
 	if err != nil {
@@ -334,7 +334,16 @@ func main() {
 			fmt.Fprintf(os.Stderr, "\n%s[!] Warning: %.0f%% of requests failed%s\n", colors.YELLOW, failureRate, colors.NC)
 			fmt.Fprintf(os.Stderr, "%s[!] The server may be rate-limiting connections%s\n", colors.YELLOW, colors.NC)
 			fmt.Fprintf(os.Stderr, "%s[*] Try: Reduce workers (-j 5) and increase timeout (-t 10)%s\n", colors.CYAN, colors.NC)
-			fmt.Fprintf(os.Stderr, "%s    Example: %s -j 5 -t 10%s\n", colors.CYAN, getRerunCommand(config), colors.NC)
+
+			// Build example command without redundant flags
+			exampleCmd := getRerunCommand(config)
+			if !strings.Contains(exampleCmd, "-j") {
+				exampleCmd += " -j 5"
+			}
+			if !strings.Contains(exampleCmd, "-t") {
+				exampleCmd += " -t 10"
+			}
+			fmt.Fprintf(os.Stderr, "%s    Example: %s%s\n", colors.CYAN, exampleCmd, colors.NC)
 		}
 	}
 
@@ -346,7 +355,7 @@ func main() {
 	}
 }
 
-func parseFlags() *core.Config {
+func parseFlags() (*core.Config, bool) {
 	config := core.DefaultConfig()
 
 	// Config file flag
@@ -370,7 +379,7 @@ func parseFlags() *core.Config {
 	pflag.StringVarP(&config.CIDR, "cidr", "c", "", "CIDR notation (e.g., 192.168.1.0/24)")
 	pflag.StringVarP(&config.InputFile, "input", "i", "", "Input file with IPs/CIDRs")
 	pflag.StringVar(&config.ASN, "asn", "", "ASN lookup, comma-separated (e.g., AS4775,AS9299 or 4775,9299)")
-	pflag.StringVarP(&config.ExpandNetmask, "expand-netmask", "n", "", "Expand discovered IPs to subnet (e.g., /24 or 24) [passive mode only]")
+	pflag.StringVarP(&config.ExpandNetmask, "expand-netmask", "n", "", "Expand IPs to subnet (e.g., /24 or 24) [works with passive mode and -i input file]")
 
 	// Performance flags
 	pflag.IntVarP(&config.Workers, "threads", "j", 10, "Number of parallel workers")
@@ -384,6 +393,8 @@ func parseFlags() *core.Config {
 	pflag.StringVarP(&config.CustomHeader, "header", "H", "", "Custom header")
 	pflag.StringVarP(&config.UserAgent, "user-agent", "A", "", "User-Agent: random, chrome, firefox, safari, edge, opera, brave, mobile, or custom string")
 	pflag.BoolVar(&config.NoUserAgent, "no-ua", false, "Disable User-Agent header")
+	followRedirectFlag := pflag.IntP("follow-redirect", "", 0, "Follow HTTP redirects (use alone for unlimited, or --follow-redirect=3 for max hops)")
+	pflag.Lookup("follow-redirect").NoOptDefVal = "10" // Default to 10 when flag used without value
 	pflag.BoolVar(&config.VerifyContent, "verify", false, "Extract title and hash response body for verification")
 	pflag.BoolVar(&config.FilterUnique, "filter-unique", false, "Show only IPs with unique content (requires --verify)")
 
@@ -409,7 +420,8 @@ func parseFlags() *core.Config {
 	pflag.StringVar(&passiveSources, "passive-sources", "", "Comma-separated passive sources (ct,dns,shodan,censys)")
 
 	// Output flags
-	pflag.StringVarP(&config.OutputFile, "output", "o", "", "Output file")
+	outputFlag := pflag.StringP("output", "o", "", "Output file path (use '-o' alone for auto-generated name, or '-o=file.txt' for custom)")
+	pflag.Lookup("output").NoOptDefVal = "auto" // Allow -o without value (requires = when specifying filename)
 	var format string
 	pflag.StringVarP(&format, "format", "f", "text", "Output format (text|json|csv)")
 	pflag.BoolVarP(&config.Quiet, "quiet", "q", false, "Quiet mode")
@@ -422,6 +434,19 @@ func parseFlags() *core.Config {
 	showVersion := pflag.BoolP("version", "V", false, "Show version")
 
 	pflag.Parse()
+
+	// Handle --follow-redirect flag
+	config.MaxRedirects = *followRedirectFlag
+
+	// Check if -o flag was provided
+	outputFlagProvided := pflag.Lookup("output").Changed
+	config.OutputFile = *outputFlag
+
+	// Auto-generate filename if -o was used without value
+	if outputFlagProvided && config.OutputFile == "auto" {
+		// Will be set later based on mode
+		config.OutputFile = "" // Mark for later generation
+	}
 
 	// Handle --show-config
 	if *showConfigPath {
@@ -549,7 +574,7 @@ func parseFlags() *core.Config {
 		}
 	}
 
-	return config
+	return config, outputFlagProvided
 }
 
 // initializeGlobalConfig creates and saves a global config file with prompts
@@ -949,8 +974,41 @@ func parseIPRanges(config *core.Config) error {
 		if err != nil {
 			return fmt.Errorf("failed to parse input file: %w", err)
 		}
-		for _, r := range fileRanges {
-			ranges = append(ranges, [2]uint32{r.Start, r.End})
+
+		// If expand-netmask is provided, expand each IP to its subnet
+		if config.ExpandNetmask != "" {
+			// Normalize netmask (add / if missing)
+			cidrBits := config.ExpandNetmask
+			if cidrBits[0] != '/' {
+				cidrBits = "/" + cidrBits
+			}
+
+			expandedCount := 0
+			for _, r := range fileRanges {
+				// For each IP in the range, expand to subnet
+				// If it's a single IP (Start == End), expand it
+				if r.Start == r.End {
+					ipAddr := ip.FromUint32(r.Start)
+					expandedRange, err := expandIPToCIDR(ipAddr.String(), cidrBits)
+					if err == nil {
+						ranges = append(ranges, expandedRange)
+						expandedCount++
+					}
+				} else {
+					// If it's already a range, keep it as-is
+					ranges = append(ranges, [2]uint32{r.Start, r.End})
+				}
+			}
+
+			if !config.Quiet && expandedCount > 0 {
+				fmt.Printf("%s[*] Expanded %d IPs from input file to %s networks%s\n\n",
+					colors.CYAN, expandedCount, config.ExpandNetmask, colors.NC)
+			}
+		} else {
+			// No expansion, use as-is
+			for _, r := range fileRanges {
+				ranges = append(ranges, [2]uint32{r.Start, r.End})
+			}
 		}
 	}
 

@@ -91,13 +91,31 @@ func (f *Formatter) formatTextResult(result core.IPResult) string {
 			msg += fmt.Sprintf(" [%s%s%s]", f.magenta, result.BodyHash, f.nc)
 		}
 
+		// Add redirect chain if available
+		if len(result.RedirectChain) > 0 {
+			msg += fmt.Sprintf("\n%s    Redirect chain:%s", f.yellow, f.nc)
+			for i, redirect := range result.RedirectChain {
+				msg += fmt.Sprintf("\n      %d. %s", i+1, redirect)
+			}
+		}
+
 		return msg
 	case "3xx":
 		if !f.showAll {
 			return ""
 		}
-		return fmt.Sprintf("%s[>]%s %s --> HTTP %d (Redirect)",
+		msg := fmt.Sprintf("%s[>]%s %s --> HTTP %d (Redirect)",
 			f.yellow, f.nc, result.IP, result.HTTPCode)
+
+		// Add redirect chain if available
+		if len(result.RedirectChain) > 0 {
+			msg += fmt.Sprintf("\n%s    Redirect chain:%s", f.yellow, f.nc)
+			for i, redirect := range result.RedirectChain {
+				msg += fmt.Sprintf("\n      %d. %s", i+1, redirect)
+			}
+		}
+
+		return msg
 	case "timeout":
 		if !f.showAll {
 			return ""
@@ -214,9 +232,40 @@ func (f *Formatter) formatTextSummary(summary core.ScanSummary) string {
 	sb.WriteString(f.cyan + "═══════════════════════════════════════════════════════════════\n")
 	sb.WriteString(f.bold + "Scan Results Summary\n" + f.nc)
 	sb.WriteString(f.cyan + "═══════════════════════════════════════════════════════════════" + f.nc + "\n")
-	sb.WriteString(fmt.Sprintf("%s[+]%s 200 OK Found: %s%d%s", f.green, f.nc, f.green, summary.SuccessCount, f.nc))
 
-	// Show success IPs if any
+	// Show verified origins (IPs without warnings) if any
+	verifiedIPs := []string{}
+	if len(summary.FalsePositiveIPs) > 0 {
+		// Build a map of false positives for quick lookup
+		falsePositiveMap := make(map[string]bool)
+		for _, ip := range summary.FalsePositiveIPs {
+			falsePositiveMap[ip] = true
+		}
+		// Find IPs that are not in false positive list
+		for _, ip := range summary.SuccessIPs {
+			if !falsePositiveMap[ip] {
+				verifiedIPs = append(verifiedIPs, ip)
+			}
+		}
+	} else {
+		// No false positives detected, all IPs are verified
+		verifiedIPs = summary.SuccessIPs
+	}
+
+	// Display verified origins first if any
+	if len(verifiedIPs) > 0 {
+		sb.WriteString(fmt.Sprintf("%s[+] Verified:%s ", f.green, f.nc))
+		for i, ip := range verifiedIPs {
+			if i > 0 {
+				sb.WriteString(", ")
+			}
+			sb.WriteString(f.green + ip + f.nc)
+		}
+		sb.WriteString("\n")
+	}
+
+	// Show all 200 OK responses
+	sb.WriteString(fmt.Sprintf("%s[+] 200 OK:%s %s%d%s", f.green, f.nc, f.green, summary.SuccessCount, f.nc))
 	if len(summary.SuccessIPs) > 0 {
 		sb.WriteString(" (")
 		for i, ip := range summary.SuccessIPs {

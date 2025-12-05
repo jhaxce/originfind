@@ -15,7 +15,7 @@ origindive-*
 
 # Code coverage profiles and other test artifacts
 *.out
-coverage
+/coverage
 coverage.*
 *.coverprofile
 profile.cov
@@ -52,3 +52,9 @@ dist/
 
 # AI generated files
 copilot-instructions.md
+
+# Scripts
+scripts/
+
+# IPs files
+*-ips.txt

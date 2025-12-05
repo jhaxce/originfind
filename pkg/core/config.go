@@ -47,6 +47,7 @@ type Config struct {
 	CustomHeader   string        `yaml:"custom_header" json:"custom_header"`
 	UserAgent      string        `yaml:"user_agent" json:"user_agent"`         // Custom UA: "random", "chrome", "firefox", etc., or custom string
 	NoUserAgent    bool          `yaml:"no_user_agent" json:"no_user_agent"`   // Disable User-Agent header entirely
+	MaxRedirects   int           `yaml:"max_redirects" json:"max_redirects"`   // Maximum redirects to follow (0=disabled, >0=enabled, default: 3)
 	VerifyContent  bool          `yaml:"verify_content" json:"verify_content"` // Extract title and hash response
 	FilterUnique   bool          `yaml:"filter_unique" json:"filter_unique"`   // Show only unique responses
 
@@ -125,6 +126,7 @@ func DefaultConfig() *Config {
 		Timeout:        5 * time.Second,
 		ConnectTimeout: 3 * time.Second,
 		Workers:        10,
+		MaxRedirects:   0,
 		Format:         FormatText,
 		MinConfidence:  0.7,
 		// Use all passive sources by default (filtered by API key availability)

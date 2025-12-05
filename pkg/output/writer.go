@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/jhaxce/origindive/pkg/core"
 )
@@ -25,6 +27,22 @@ func NewWriter(outputFile string, formatter *Formatter, quiet bool) (*Writer, er
 	}
 
 	if outputFile != "" {
+		// Auto-increment if file exists
+		originalFile := outputFile
+		if _, err := os.Stat(outputFile); err == nil {
+			// File exists, find next available number
+			base := strings.TrimSuffix(outputFile, filepath.Ext(outputFile))
+			ext := filepath.Ext(outputFile)
+			for i := 1; ; i++ {
+				newName := fmt.Sprintf("%s-%d%s", base, i, ext)
+				if _, err := os.Stat(newName); os.IsNotExist(err) {
+					outputFile = newName
+					fmt.Printf("[*] Output file '%s' exists, using: %s\n", originalFile, outputFile)
+					break
+				}
+			}
+		}
+
 		file, err := os.Create(outputFile)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create output file: %w", err)

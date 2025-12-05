@@ -66,8 +66,9 @@ func SearchHostname(ctx context.Context, domain string, apiKeys []string, timeou
 
 // searchWithKey performs the search with a single API key
 func searchWithKey(ctx context.Context, domain, apiKey string, timeout time.Duration) ([]string, error) {
-	// Build query: hostname:domain.com
-	query := fmt.Sprintf("hostname:%s", domain)
+	// Build query: ssl.cert.subject.cn:"domain.com"
+	// This searches for SSL certificates with the domain in the Common Name field
+	query := fmt.Sprintf(`ssl.cert.subject.cn:"%s"`, domain)
 	url := fmt.Sprintf("https://api.shodan.io/shodan/host/search?query=%s&key=%s", query, apiKey)
 
 	client := &http.Client{

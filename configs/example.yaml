@@ -42,6 +42,12 @@ connect_timeout: "3s"
 # user_agent: "random"  # Options: random, chrome, firefox, safari, edge, opera, brave, mobile, or custom string
 no_user_agent: false
 
+# Redirect following (v3.2.0+)
+# follow_redirect: 10  # Follow up to 10 redirects (enables false positive detection)
+# follow_redirect: 0   # Disable redirect following (default)
+# When enabled, automatically validates successful IPs without Host header
+# to detect false positives from shared hosting/cloud load balancers
+
 # Proxy configuration
 # proxy_url: "http://127.0.0.1:8080"  # Single proxy (HTTP or SOCKS5)
 # proxy_url: "socks5://127.0.0.1:1080"  # SOCKS5 example
