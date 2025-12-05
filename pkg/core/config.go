@@ -89,13 +89,14 @@ type Config struct {
 	HunterKeys         []string `yaml:"hunter_keys" json:"hunter_keys"`
 
 	// Output configuration
-	OutputFile string       `yaml:"output_file" json:"output_file"`
-	Format     OutputFormat `yaml:"format" json:"format"`
-	Quiet      bool         `yaml:"quiet" json:"quiet"`
-	Verbose    bool         `yaml:"verbose" json:"verbose"`
-	ShowAll    bool         `yaml:"show_all" json:"show_all"`
-	NoColor    bool         `yaml:"no_color" json:"no_color"`
-	NoProgress bool         `yaml:"no_progress" json:"no_progress"`
+	OutputFile   string       `yaml:"output_file" json:"output_file"`
+	Format       OutputFormat `yaml:"format" json:"format"`
+	Quiet        bool         `yaml:"quiet" json:"quiet"`
+	Verbose      bool         `yaml:"verbose" json:"verbose"`
+	ShowAll      bool         `yaml:"show_all" json:"show_all"`
+	NoColor      bool         `yaml:"no_color" json:"no_color"`
+	NoProgress   bool         `yaml:"no_progress" json:"no_progress"`
+	SilentErrors bool         `yaml:"silent_errors" json:"silent_errors"` // Suppress passive source API error warnings
 }
 
 // ScanMode represents the scanning mode

@@ -35,6 +35,11 @@ dist/
 *.deb
 *.rpm
 
+# Generated output files (scan results)
+*-passive-*.txt
+*-active-*.txt
+*-auto-*.txt
+
 # env file
 .env
 .env.local

@@ -149,8 +149,7 @@ func main() {
 						}
 					}
 					if !config.Quiet {
-						fmt.Printf("%s[*] Proceeding with active scan on %d discovered IPs%s\n", colors.CYAN, len(passiveIPs), colors.NC)
-						fmt.Printf("%s═══════════════════════════════════════════════════════════════%s\n\n", colors.CYAN, colors.NC)
+						fmt.Printf("\n%s[*] Proceeding with active scan on %d discovered IPs%s\n", colors.CYAN, len(passiveIPs), colors.NC)
 					}
 				}
 				// Deduplicate after expansion
@@ -215,6 +214,15 @@ func main() {
 		fmt.Printf("%s═══════════════════════════════════════════════════════════════%s\n\n", colors.CYAN, colors.NC)
 	}
 
+	// Generate default output filename if not specified
+	if config.OutputFile == "" {
+		if config.Mode == core.ModeAuto {
+			config.OutputFile = generateAutoFilename(config.Domain)
+		} else {
+			config.OutputFile = generateActiveFilename(config.Domain)
+		}
+	}
+
 	// Create output writer
 	formatter := output.NewFormatter(config.Format, !config.NoColor, config.ShowAll)
 	writer, err := output.NewWriter(config.OutputFile, formatter, config.Quiet)
@@ -261,23 +269,25 @@ func main() {
 		fmt.Println()                      // Blank line after progress bar
 	}
 
-	// Write results after scanning completes
-	for _, r := range result.Success {
-		writer.WriteResult(*r)
-	}
+	// Write results after scanning completes (descending order: errors → 200 OK near summary)
 	if config.ShowAll {
-		for _, r := range result.Redirects {
-			writer.WriteResult(*r)
-		}
-		for _, r := range result.Other {
+		// Write errors first (least important, scroll past)
+		for _, r := range result.Errors {
 			writer.WriteResult(*r)
 		}
 		for _, r := range result.Timeouts {
 			writer.WriteResult(*r)
 		}
-		for _, r := range result.Errors {
+		for _, r := range result.Other {
 			writer.WriteResult(*r)
 		}
+		for _, r := range result.Redirects {
+			writer.WriteResult(*r)
+		}
+	}
+	// Write 200 OK last (most important, near summary)
+	for _, r := range result.Success {
+		writer.WriteResult(*r)
 	}
 
 	// Show content hash analysis if --verify was used
@@ -407,6 +417,7 @@ func parseFlags() *core.Config {
 	pflag.BoolVarP(&config.ShowAll, "show-all", "a", false, "Show all responses")
 	pflag.BoolVar(&config.NoColor, "no-color", false, "Disable colored output")
 	pflag.BoolVar(&config.NoProgress, "no-progress", false, "Disable progress bar")
+	pflag.BoolVar(&config.SilentErrors, "silent-errors", false, "Suppress passive source API error warnings")
 
 	// Version flag
 	showVersion := pflag.BoolP("version", "V", false, "Show version")
@@ -618,6 +629,17 @@ func initializeGlobalConfig() error {
 	if len(censysTokens) > 0 {
 		config.CensysTokens = censysTokens
 		fmt.Printf("%s✓ Added %d Censys token(s)%s\n", colors.GREEN, len(censysTokens), colors.NC)
+
+		// Prompt for Organization ID (required for API)
+		fmt.Printf("\n%sCensys Organization ID%s (required for API access)\n", colors.CYAN, colors.NC)
+		fmt.Printf("  Org ID: ")
+		if scanner.Scan() {
+			orgID := strings.TrimSpace(scanner.Text())
+			if orgID != "" {
+				config.CensysOrgID = orgID
+				fmt.Printf("%s✓ Added Censys Org ID%s\n", colors.GREEN, colors.NC)
+			}
+		}
 	}
 
 	// SecurityTrails keys
@@ -888,7 +910,7 @@ func runPassiveRecon(config *core.Config) ([]string, error) {
 			defer wg.Done()
 			ips, err := queryPassiveSource(src, config)
 			if err != nil {
-				if !config.Quiet {
+				if !config.Quiet && !config.SilentErrors {
 					fmt.Fprintf(os.Stderr, "%s[!] %s: %s%s\n", colors.YELLOW, src, err, colors.NC)
 				}
 				return
@@ -1370,6 +1392,24 @@ func updateWAFDatabase() error {
 // generatePassiveFilename creates a filename for passive scan results
 // Format: domain.com-passive-2025-12-04_14-30-45.txt
 func generatePassiveFilename(domain string) string {
+	return generateOutputFilename(domain, "passive")
+}
+
+// generateActiveFilename creates a filename for active scan results
+// Format: domain.com-active-2025-12-04_14-30-45.txt
+func generateActiveFilename(domain string) string {
+	return generateOutputFilename(domain, "active")
+}
+
+// generateAutoFilename creates a filename for auto scan results
+// Format: domain.com-auto-2025-12-04_14-30-45.txt
+func generateAutoFilename(domain string) string {
+	return generateOutputFilename(domain, "auto")
+}
+
+// generateOutputFilename creates a filename for scan results
+// Format: domain.com-{mode}-2025-12-04_14-30-45.txt
+func generateOutputFilename(domain, mode string) string {
 	// Sanitize domain name (remove invalid filename characters)
 	sanitized := strings.NewReplacer(
 		"/", "-",
@@ -1386,7 +1426,7 @@ func generatePassiveFilename(domain string) string {
 	// Generate timestamp: 2025-12-04_14-30-45
 	timestamp := time.Now().Format("2006-01-02_15-04-05")
 
-	return fmt.Sprintf("%s-passive-%s.txt", sanitized, timestamp)
+	return fmt.Sprintf("%s-%s-%s.txt", sanitized, mode, timestamp)
 }
 
 // expandIPToCIDR expands a single IP to its CIDR network
@@ -1462,6 +1502,43 @@ func getRerunCommand(config *core.Config) string {
 	return cmd
 }
 
+// checkDomainWAF checks if a domain's current IP is behind WAF/CDN
+func checkDomainWAF(domain, wafDBPath string) (bool, string) {
+	// Resolve domain to IP
+	ips, err := net.LookupIP(domain)
+	if err != nil || len(ips) == 0 {
+		return false, ""
+	}
+
+	// Load WAF database
+	db, err := waf.LoadWAFDatabase(wafDBPath)
+	if err != nil {
+		return false, ""
+	}
+
+	// Create range set and add all providers
+	rangeSet := waf.NewRangeSet()
+	for i := range db.Providers {
+		rangeSet.AddProvider(&db.Providers[i])
+	}
+
+	// Check each resolved IP
+	for _, ip := range ips {
+		// Only check IPv4
+		if ipv4 := ip.To4(); ipv4 != nil {
+			if providerID, found := rangeSet.FindProvider(ipv4); found {
+				// Get provider name
+				if provider := db.GetProvider(providerID); provider != nil {
+					return true, provider.Name
+				}
+				return true, providerID
+			}
+		}
+	}
+
+	return false, ""
+}
+
 func printBanner(config *core.Config) {
 	fmt.Println()
 	fmt.Printf("%s           _      _         ___         %s\n", colors.CYAN, colors.NC)
@@ -1475,6 +1552,12 @@ func printBanner(config *core.Config) {
 		fmt.Printf("%sWAF Filtering: ENABLED%s\n", colors.GREEN, colors.NC)
 	}
 	fmt.Printf("%s[*]%s Domain: %s\n", colors.BLUE, colors.NC, config.Domain)
+
+	// Check if domain is behind WAF/CDN
+	if behindWAF, provider := checkDomainWAF(config.Domain, config.WAFDatabasePath); behindWAF {
+		fmt.Printf("%s[!]%s Domain appears to be behind %s%s%s\n", colors.YELLOW, colors.NC, colors.BOLD, provider, colors.NC)
+	}
+
 	fmt.Printf("%s[*]%s Mode: %s\n", colors.BLUE, colors.NC, config.Mode)
 	fmt.Printf("%s[*]%s Workers: %d\n", colors.BLUE, colors.NC, config.Workers)
 	fmt.Printf("%s[*]%s Timeout: %s\n", colors.BLUE, colors.NC, config.Timeout)
