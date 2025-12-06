@@ -104,7 +104,7 @@ func CheckForUpdate() (*UpdateInfo, error) {
 
 	// Find the appropriate asset for this platform. Support both
 	// underscore and dash separators for backward compatibility with older releases.
-	assetName := fmt.Sprintf("origindive_%s_%s_%s", latestVersion, runtime.GOOS, runtime.GOARCH)
+	assetName := fmt.Sprintf("origindive_v%s_%s_%s", latestVersion, runtime.GOOS, runtime.GOARCH)
 	var expectedExt string
 	if runtime.GOOS == "windows" {
 		expectedExt = ".zip"
@@ -154,8 +154,33 @@ func DownloadUpdate(info *UpdateInfo) (string, error) {
 		return "", fmt.Errorf("download failed with status %d", resp.StatusCode)
 	}
 
-	// Create temporary file
-	tmpFile, err := os.CreateTemp("", "origindive-update-*")
+	// Determine extension from asset name (prefer) or download URL
+	ext := ""
+	if info != nil && info.AssetName != "" {
+		if strings.HasSuffix(info.AssetName, ".tar.gz") {
+			ext = ".tar.gz"
+		} else {
+			ext = filepath.Ext(info.AssetName)
+		}
+	}
+	if ext == "" {
+		// Fallback to extension from URL path
+		if u, err := http.NewRequest("GET", info.DownloadURL, nil); err == nil {
+			base := filepath.Base(u.URL.Path)
+			if strings.HasSuffix(base, ".tar.gz") {
+				ext = ".tar.gz"
+			} else {
+				ext = filepath.Ext(base)
+			}
+		}
+	}
+
+	// Create temporary file with proper extension so ExtractBinary can detect format
+	pattern := "origindive-update-*"
+	if ext != "" {
+		pattern = pattern + ext
+	}
+	tmpFile, err := os.CreateTemp("", pattern)
 	if err != nil {
 		return "", fmt.Errorf("failed to create temp file: %w", err)
 	}
