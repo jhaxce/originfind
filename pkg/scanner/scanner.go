@@ -11,15 +11,18 @@ import (
 	"math/rand"
 	"net"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	"github.com/jhaxce/origindive/internal/colors"
 	"github.com/jhaxce/origindive/internal/version"
 	"github.com/jhaxce/origindive/pkg/core"
 	"github.com/jhaxce/origindive/pkg/ip"
+	"github.com/jhaxce/origindive/pkg/output"
 	"github.com/jhaxce/origindive/pkg/proxy"
 	"github.com/jhaxce/origindive/pkg/waf"
 )
@@ -297,11 +300,57 @@ func (s *Scanner) Scan(ctx context.Context) (*core.ScanResult, error) {
 			fmt.Println()                      // Blank line after progress bar
 		}
 
-		fmt.Println("[*] Verifying redirect behavior without Host header (this may take a moment)...")
+		// Colorize verification header if colors are initialized
+		if !s.config.NoColor {
+			fmt.Println(colors.YELLOW + "[*] Verifying redirect behavior" + colors.NC + "\n")
+		} else {
+			fmt.Println("[*] Verifying redirect behavior\n")
+		}
 		falsePositiveIPs := s.validateSuccessfulIPs(ctx, result.Success)
+		// Additionally perform PTR reverse lookup checks
+		ptrFalsePos := s.validatePTRs(ctx, result.Success)
+		// Merge PTR false positives into overall list
+		if len(ptrFalsePos) > 0 {
+			falsePositiveIPs = append(falsePositiveIPs, ptrFalsePos...)
+		}
 		if len(falsePositiveIPs) > 0 {
 			result.Summary.FalsePositiveCount = uint64(len(falsePositiveIPs))
 			result.Summary.FalsePositiveIPs = falsePositiveIPs
+		}
+
+		// Collect possible origin IPs from success results and classify as related vs other
+		related := make([]string, 0)
+		other := make([]string, 0)
+		for _, r := range result.Success {
+			if r.PossibleOrigin {
+				// Classify as related if the recorded destination contains the configured domain
+				if strings.Contains(strings.ToLower(r.PossibleOriginDest), strings.ToLower(s.config.Domain)) {
+					related = append(related, r.IP)
+				} else {
+					other = append(other, r.IP)
+				}
+			} else {
+				// Fallback: check redirect chain notes for legacy "Possible origin IP" note
+				for _, note := range r.RedirectChain {
+					if strings.HasPrefix(note, "Possible origin IP:") {
+						// Treat as other by default
+						other = append(other, r.IP)
+						break
+					}
+				}
+			}
+		}
+
+		total := len(related) + len(other)
+		if total > 0 {
+			result.Summary.PossibleOriginCount = uint64(total)
+			// Combine related then other for predictable ordering
+			combined := make([]string, 0, total)
+			combined = append(combined, related...)
+			combined = append(combined, other...)
+			result.Summary.PossibleOriginIPs = combined
+			result.Summary.PossibleOriginRelatedCount = uint64(len(related))
+			result.Summary.PossibleOriginRelatedIPs = related
 		}
 	}
 
@@ -717,9 +766,51 @@ func (s *Scanner) validateSuccessfulIPs(ctx context.Context, successIPs []*core.
 		},
 	}
 
-	for _, ipResult := range successIPs {
-		// Skip if no redirect chain (direct 200 OK)
+	// Optional progress bar for verification pass
+	var prog *output.Progress
+	showProg := !s.config.NoProgress && !s.config.Quiet
+	if showProg {
+		total := uint64(len(successIPs))
+		prog = output.NewProgress(total, true, !s.config.NoColor)
+		go prog.Display()
+	}
+
+	for idx, ipResult := range successIPs {
+		// Update progress if shown
+		if showProg && prog != nil {
+			prog.Update(uint64(idx + 1))
+		}
+		// If no redirect chain (direct 200 OK), still verify content without Host header
 		if len(ipResult.RedirectChain) == 0 {
+			if ipResult.Status == "200" && ipResult.BodyHash != "" {
+				// Test without Host header and compare body hash
+				testURL := fmt.Sprintf("http://%s", ipResult.IP)
+				testReq, err := http.NewRequestWithContext(ctx, "GET", testURL, nil)
+				if err == nil {
+					resp2, err2 := client.Do(testReq)
+					if err2 == nil {
+						// Read body and compute hash (limit to 64KB as in scanIP)
+						body, errRead := io.ReadAll(io.LimitReader(resp2.Body, 64*1024))
+						resp2.Body.Close()
+						if errRead == nil {
+							h := sha256.Sum256(body)
+							hashStr := hex.EncodeToString(h[:])[:16]
+							if hashStr == ipResult.BodyHash {
+								originNote := fmt.Sprintf("Possible origin IP: %s (content match)", ipResult.IP)
+								ipResult.RedirectChain = append(ipResult.RedirectChain, originNote)
+								ipResult.PossibleOrigin = true
+								ipResult.PossibleOriginDest = ""
+							} else {
+								note := fmt.Sprintf("Note: Without Host header: content differs from Host-based response (but still possible)")
+								ipResult.RedirectChain = append(ipResult.RedirectChain, note)
+								// Treat ambiguous 'Note' cases as related possible origins
+								ipResult.PossibleOrigin = true
+								ipResult.PossibleOriginDest = s.config.Domain
+							}
+						}
+					}
+				}
+			}
 			continue
 		}
 
@@ -755,20 +846,119 @@ func (s *Scanner) validateSuccessfulIPs(ctx context.Context, successIPs []*core.
 				hostDest = strings.TrimSpace(parts[1])
 			}
 
-			// Compare destinations
-			if naturalDest != "" && hostDest != "" && naturalDest != hostDest {
-				natHost := extractHost(naturalDest)
-				hostDestHost := extractHost(hostDest)
+			// Compare destinations (normalize to ignore default ports)
+			if naturalDest != "" && hostDest != "" {
+				// Normalize for comparison (strip default ports and normalize path)
+				normNatural := normalizeURLForCompare(naturalDest)
+				normHost := normalizeURLForCompare(hostDest)
 
-				// If destinations differ and natural doesn't point to target domain
-				if natHost != hostDestHost && !strings.Contains(naturalDest, s.config.Domain) {
-					warning := fmt.Sprintf("⚠ Without Host header: %s (different from %s)", naturalDest, hostDest)
-					ipResult.RedirectChain = append(ipResult.RedirectChain, warning)
-					falsePositiveIPs = append(falsePositiveIPs, ipResult.IP)
+				if normNatural != normHost {
+					natHost := extractHost(naturalDest)
+					hostDestHost := extractHost(hostDest)
+
+					displayNatural := normalizeURLForDisplay(naturalDest)
+					displayHost := normalizeURLForDisplay(hostDest)
+
+					// If hosts differ and natural doesn't contain the target domain and isn't raw IP, flag as false-positive
+					if natHost != hostDestHost && !strings.Contains(strings.ToLower(naturalDest), strings.ToLower(s.config.Domain)) && natHost != ipResult.IP {
+						warning := fmt.Sprintf("⚠ Without Host header: %s (different from %s)", displayNatural, displayHost)
+						ipResult.RedirectChain = append(ipResult.RedirectChain, warning)
+						falsePositiveIPs = append(falsePositiveIPs, ipResult.IP)
+					} else {
+						note := fmt.Sprintf("Note: Without Host header: %s (different from %s)", displayNatural, displayHost)
+						ipResult.RedirectChain = append(ipResult.RedirectChain, note)
+					}
+				}
+				// If normalized values are equal, this is a good signal the IP may be the origin server.
+				if normNatural == normHost {
+					display := normalizeURLForDisplay(naturalDest)
+					originNote := fmt.Sprintf("Possible origin IP: %s (destination: %s)", ipResult.IP, display)
+					ipResult.RedirectChain = append(ipResult.RedirectChain, originNote)
+
+					// Mark as possible origin and record the destination for later classification
+					ipResult.PossibleOrigin = true
+					ipResult.PossibleOriginDest = display
 				}
 			}
 		}
 	}
+
+	// Stop progress bar if active
+	if prog != nil {
+		prog.Stop()
+		time.Sleep(100 * time.Millisecond)
+		if !s.config.Quiet {
+			fmt.Println()
+		}
+	}
+	return falsePositiveIPs
+}
+
+// normalizeURLForCompare parses a URL and returns a normalized string
+// without default ports so that https://host:443/... and https://host/... compare equal.
+func normalizeURLForCompare(u string) string {
+	parsed, err := url.Parse(u)
+	if err != nil {
+		// Fallback to raw string
+		return strings.TrimSuffix(u, "/")
+	}
+	host := parsed.Hostname()
+	path := parsed.EscapedPath()
+	if path == "" {
+		path = "/"
+	}
+	return fmt.Sprintf("%s://%s%s", parsed.Scheme, host, path)
+}
+
+// normalizeURLForDisplay returns a cleaned URL string suitable for user-facing notes
+// It strips default ports and preserves the path.
+func normalizeURLForDisplay(u string) string {
+	parsed, err := url.Parse(u)
+	if err != nil {
+		return u
+	}
+	host := parsed.Hostname()
+	path := parsed.EscapedPath()
+	if path == "" {
+		path = "/"
+	}
+	return fmt.Sprintf("%s://%s%s", parsed.Scheme, host, path)
+}
+
+// validatePTRs performs reverse DNS (PTR) lookups for successful IPs.
+// It populates IPResult.PTR and returns a list of IPs considered potential false-positives
+// when the PTR record clearly points to a different host (not containing the target domain).
+func (s *Scanner) validatePTRs(ctx context.Context, successIPs []*core.IPResult) []string {
+	falsePositiveIPs := make([]string, 0)
+
+	for _, ipResult := range successIPs {
+		// perform lookup with per-lookup timeout
+		lookupCtx, cancel := context.WithTimeout(ctx, s.config.Timeout)
+		names, err := net.DefaultResolver.LookupAddr(lookupCtx, ipResult.IP)
+		cancel()
+		if err != nil || len(names) == 0 {
+			// No PTR found; record empty PTR
+			ipResult.PTR = ""
+			continue
+		}
+
+		// join names
+		// strip trailing dot from PTR names
+		for i, n := range names {
+			names[i] = strings.TrimSuffix(n, ".")
+		}
+		ipResult.PTR = strings.Join(names, ", ")
+
+		// If PTR does not contain the configured domain, flag for review
+		ptrLower := strings.ToLower(ipResult.PTR)
+		domainLower := strings.ToLower(s.config.Domain)
+		if !strings.Contains(ptrLower, domainLower) {
+			warning := fmt.Sprintf("⚠ PTR: reverse DNS points to %s", ipResult.PTR)
+			ipResult.RedirectChain = append(ipResult.RedirectChain, warning)
+			falsePositiveIPs = append(falsePositiveIPs, ipResult.IP)
+		}
+	}
+
 	return falsePositiveIPs
 }
 

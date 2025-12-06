@@ -26,30 +26,37 @@ type ScanResult struct {
 
 // ScanSummary contains summary statistics
 type ScanSummary struct {
-	TotalIPs           uint64            `json:"total_ips"`
-	ScannedIPs         uint64            `json:"scanned_ips"`
-	SkippedIPs         uint64            `json:"skipped_ips"` // WAF IPs
-	SuccessCount       uint64            `json:"success_count"`
-	SuccessIPs         []string          `json:"success_ips,omitempty"`          // List of 200 OK IPs
-	FalsePositiveCount uint64            `json:"false_positive_count,omitempty"` // IPs with Host header warnings
-	FalsePositiveIPs   []string          `json:"false_positive_ips,omitempty"`   // IPs flagged as potential false positives
-	Duration           time.Duration     `json:"duration"`
-	WAFStats           map[string]uint64 `json:"waf_stats,omitempty"` // provider -> count
+	TotalIPs                   uint64            `json:"total_ips"`
+	ScannedIPs                 uint64            `json:"scanned_ips"`
+	SkippedIPs                 uint64            `json:"skipped_ips"` // WAF IPs
+	SuccessCount               uint64            `json:"success_count"`
+	SuccessIPs                 []string          `json:"success_ips,omitempty"`          // List of 200 OK IPs
+	FalsePositiveCount         uint64            `json:"false_positive_count,omitempty"` // IPs with Host header warnings
+	FalsePositiveIPs           []string          `json:"false_positive_ips,omitempty"`   // IPs flagged as potential false positives
+	PossibleOriginCount        uint64            `json:"possible_origin_count,omitempty"`
+	PossibleOriginIPs          []string          `json:"possible_origin_ips,omitempty"`
+	PossibleOriginRelatedCount uint64            `json:"possible_origin_related_count,omitempty"`
+	PossibleOriginRelatedIPs   []string          `json:"possible_origin_related_ips,omitempty"`
+	Duration                   time.Duration     `json:"duration"`
+	WAFStats                   map[string]uint64 `json:"waf_stats,omitempty"` // provider -> count
 }
 
 // IPResult represents the result of scanning a single IP
 type IPResult struct {
-	IP            string   `json:"ip"`
-	Status        string   `json:"status"` // "200", "3xx", "4xx", "5xx", "timeout", "error", "skipped"
-	HTTPCode      int      `json:"http_code"`
-	ResponseTime  string   `json:"response_time"`
-	BodyHash      string   `json:"body_hash,omitempty"`      // SHA256 hash of response body (first 8KB)
-	Title         string   `json:"title,omitempty"`          // HTML title tag content
-	ContentType   string   `json:"content_type,omitempty"`   // Response Content-Type header
-	Server        string   `json:"server,omitempty"`         // Server header
-	RedirectChain []string `json:"redirect_chain,omitempty"` // Redirect URLs if --follow-redirect is used
-	Error         string   `json:"error,omitempty"`
-	Provider      string   `json:"provider,omitempty"` // WAF provider if skipped
+	IP                 string   `json:"ip"`
+	Status             string   `json:"status"` // "200", "3xx", "4xx", "5xx", "timeout", "error", "skipped"
+	HTTPCode           int      `json:"http_code"`
+	ResponseTime       string   `json:"response_time"`
+	BodyHash           string   `json:"body_hash,omitempty"`      // SHA256 hash of response body (first 8KB)
+	Title              string   `json:"title,omitempty"`          // HTML title tag content
+	ContentType        string   `json:"content_type,omitempty"`   // Response Content-Type header
+	Server             string   `json:"server,omitempty"`         // Server header
+	PTR                string   `json:"ptr,omitempty"`            // Reverse DNS PTR record
+	RedirectChain      []string `json:"redirect_chain,omitempty"` // Redirect URLs if --follow-redirect is used
+	Error              string   `json:"error,omitempty"`
+	Provider           string   `json:"provider,omitempty"` // WAF provider if skipped
+	PossibleOrigin     bool     `json:"possible_origin,omitempty"`
+	PossibleOriginDest string   `json:"possible_origin_dest,omitempty"`
 }
 
 // PassiveIP represents an IP discovered through passive reconnaissance

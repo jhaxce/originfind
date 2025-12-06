@@ -86,6 +86,11 @@ func (f *Formatter) formatTextResult(result core.IPResult) string {
 			msg += fmt.Sprintf(" | %s\"%s\"%s", f.cyan, result.Title, f.nc)
 		}
 
+		// // Add PTR if available
+		// if result.PTR != "" {
+		// 	msg += fmt.Sprintf(" | %sPTR:%s %s", f.yellow, f.nc, result.PTR)
+		// }
+
 		// Add body hash if available (to identify unique responses)
 		if result.BodyHash != "" {
 			msg += fmt.Sprintf(" [%s%s%s]", f.magenta, result.BodyHash, f.nc)
@@ -233,19 +238,49 @@ func (f *Formatter) formatTextSummary(summary core.ScanSummary) string {
 	sb.WriteString(f.bold + "Scan Results Summary\n" + f.nc)
 	sb.WriteString(f.cyan + "═══════════════════════════════════════════════════════════════" + f.nc + "\n")
 
-	// Show all 200 OK responses
-	sb.WriteString(fmt.Sprintf("%s[+] 200 OK:%s %s%d%s", f.green, f.nc, f.green, summary.SuccessCount, f.nc))
-	if len(summary.SuccessIPs) > 0 {
-		sb.WriteString(" (")
-		for i, ip := range summary.SuccessIPs {
-			if i > 0 {
-				sb.WriteString(", ")
+	// Show 200 OK count (no individual IP list)
+	sb.WriteString(fmt.Sprintf("%s[+] 200 OK:%s %s%d%s\n", f.green, f.nc, f.green, summary.SuccessCount, f.nc))
+
+	// Possible origin hosts discovered during verification
+	if summary.PossibleOriginCount > 0 {
+		sb.WriteString(fmt.Sprintf("%s[?]%s Possible origin(s): %s%d%s", f.bold, f.nc, f.green, summary.PossibleOriginCount, f.nc))
+
+		// Related origins (likely match the supplied domain)
+		if len(summary.PossibleOriginRelatedIPs) > 0 {
+			sb.WriteString(" (related: ")
+			for i, ip := range summary.PossibleOriginRelatedIPs {
+				if i > 0 {
+					sb.WriteString(", ")
+				}
+				sb.WriteString(f.green + ip + f.nc)
 			}
-			sb.WriteString(f.green + ip + f.nc)
+			sb.WriteString(")")
 		}
-		sb.WriteString(")")
+
+		// Other origins (not related to the supplied domain) - highlight in yellow
+		// These are shown after related ones for clarity
+		otherStart := len(summary.PossibleOriginRelatedIPs)
+		if len(summary.PossibleOriginIPs) > otherStart {
+			// Determine other ips slice
+			otherIPs := summary.PossibleOriginIPs[otherStart:]
+			if len(otherIPs) > 0 {
+				if len(summary.PossibleOriginRelatedIPs) == 0 {
+					sb.WriteString(" (other: ")
+				} else {
+					sb.WriteString(" (other: ")
+				}
+				for i, ip := range otherIPs {
+					if i > 0 {
+						sb.WriteString(", ")
+					}
+					sb.WriteString(f.yellow + ip + f.nc)
+				}
+				sb.WriteString(")")
+			}
+		}
+
+		sb.WriteString("\n")
 	}
-	sb.WriteString("\n")
 
 	sb.WriteString(fmt.Sprintf("%s[*]%s Total Scanned: %s%d%s\n", f.bold, f.nc, f.bold, summary.ScannedIPs, f.nc))
 

@@ -592,7 +592,7 @@ func initializeGlobalConfig() error {
 	}
 
 	fmt.Printf("%s╔═══════════════════════════════════════════════════════════════╗%s\n", colors.CYAN, colors.NC)
-	fmt.Printf("%s║           origindive - Global Config Setup                   ║%s\n", colors.CYAN, colors.NC)
+	fmt.Printf("%s║           origindive - Global Config Setup                    ║%s\n", colors.CYAN, colors.NC)
 	fmt.Printf("%s╚═══════════════════════════════════════════════════════════════╝%s\n\n", colors.CYAN, colors.NC)
 
 	fmt.Printf("This will create a global configuration file at:\n")
@@ -1123,12 +1123,22 @@ func queryPassiveSource(source string, config *core.Config) ([]string, error) {
 	}
 }
 
+// passiveTimeout returns the timeout to use for passive intelligence sources.
+// It is at least 30s, but follows the CLI `-t` value if greater.
+func passiveTimeout(config *core.Config) time.Duration {
+	if config.Timeout > 30*time.Second {
+		return config.Timeout
+	}
+	return 30 * time.Second
+}
+
 // queryCertificateTransparency searches CT logs for domain certificates
 func queryCertificateTransparency(domain string, config *core.Config) ([]string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), config.Timeout)
+	t := passiveTimeout(config)
+	ctx, cancel := context.WithTimeout(context.Background(), t)
 	defer cancel()
 
-	ips, err := ct.SearchCrtSh(ctx, domain, config.Timeout)
+	ips, err := ct.SearchCrtSh(ctx, domain, t)
 	if err != nil {
 		return []string{}, fmt.Errorf("CT search failed: %w", err)
 	}
@@ -1142,8 +1152,9 @@ func queryDNSHistory(domain string, config *core.Config) ([]string, error) {
 
 	// Phase 1: Subdomain enumeration
 	fmt.Printf("  → Enumerating subdomains...\n")
-	subScanner := subdomain.NewScanner(domain, 20, config.Timeout)
-	ctx, cancel := context.WithTimeout(context.Background(), config.Timeout*4)
+	t := passiveTimeout(config)
+	subScanner := subdomain.NewScanner(domain, 20, t)
+	ctx, cancel := context.WithTimeout(context.Background(), t*4)
 	defer cancel()
 
 	subResults, err := subScanner.Scan(ctx, subdomain.CommonSubdomains)
@@ -1155,7 +1166,7 @@ func queryDNSHistory(domain string, config *core.Config) ([]string, error) {
 
 	// Phase 2: MX record analysis
 	fmt.Printf("  → Analyzing MX records...\n")
-	mxRecords, err := passivedns.LookupMX(ctx, domain, config.Timeout)
+	mxRecords, err := passivedns.LookupMX(ctx, domain, t)
 	if err == nil && len(mxRecords) > 0 {
 		mxIPs := passivedns.GetAllMXIPs(mxRecords)
 		fmt.Printf("  → Found %d IPs from %d MX records\n", len(mxIPs), len(mxRecords))
@@ -1185,10 +1196,11 @@ func queryShodan(domain string, config *core.Config) ([]string, error) {
 		return []string{}, fmt.Errorf("no Shodan API keys configured")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), config.Timeout)
+	t := passiveTimeout(config)
+	ctx, cancel := context.WithTimeout(context.Background(), t)
 	defer cancel()
 
-	ips, err := shodan.SearchHostname(ctx, domain, config.ShodanKeys, config.Timeout)
+	ips, err := shodan.SearchHostname(ctx, domain, config.ShodanKeys, t)
 	if err != nil {
 		return []string{}, fmt.Errorf("Shodan search failed: %w", err)
 	}
@@ -1202,10 +1214,11 @@ func queryCensys(domain string, config *core.Config) ([]string, error) {
 		return []string{}, fmt.Errorf("no Censys PAT tokens configured")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), config.Timeout)
+	t := passiveTimeout(config)
+	ctx, cancel := context.WithTimeout(context.Background(), t)
 	defer cancel()
 
-	ips, err := censys.SearchHosts(ctx, domain, config.CensysTokens, config.CensysOrgID, config.Timeout)
+	ips, err := censys.SearchHosts(ctx, domain, config.CensysTokens, config.CensysOrgID, t)
 	if err != nil {
 		return []string{}, fmt.Errorf("Censys search failed: %w", err)
 	}
@@ -1219,10 +1232,11 @@ func querySecurityTrails(domain string, config *core.Config) ([]string, error) {
 		return []string{}, fmt.Errorf("no SecurityTrails API keys configured")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), config.Timeout)
+	t := passiveTimeout(config)
+	ctx, cancel := context.WithTimeout(context.Background(), t)
 	defer cancel()
 
-	ips, err := securitytrails.SearchSubdomainsAndHistory(ctx, domain, config.SecurityTrailsKeys, config.Timeout)
+	ips, err := securitytrails.SearchSubdomainsAndHistory(ctx, domain, config.SecurityTrailsKeys, t)
 	if err != nil {
 		return []string{}, fmt.Errorf("SecurityTrails search failed: %w", err)
 	}
@@ -1236,10 +1250,11 @@ func queryZoomEye(domain string, config *core.Config) ([]string, error) {
 		return []string{}, fmt.Errorf("no ZoomEye API keys configured")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), config.Timeout)
+	t := passiveTimeout(config)
+	ctx, cancel := context.WithTimeout(context.Background(), t)
 	defer cancel()
 
-	ips, err := zoomeye.SearchHost(ctx, domain, config.ZoomEyeKeys, config.Timeout)
+	ips, err := zoomeye.SearchHost(ctx, domain, config.ZoomEyeKeys, t)
 	if err != nil {
 		return []string{}, fmt.Errorf("ZoomEye search failed: %w", err)
 	}
@@ -1250,10 +1265,11 @@ func queryZoomEye(domain string, config *core.Config) ([]string, error) {
 // queryWayback searches the Wayback Machine CDX API for historical subdomains
 func queryWayback(domain string, config *core.Config) ([]string, error) {
 	// Wayback Machine is free - no API key needed
-	ctx, cancel := context.WithTimeout(context.Background(), config.Timeout)
+	t := passiveTimeout(config)
+	ctx, cancel := context.WithTimeout(context.Background(), t)
 	defer cancel()
 
-	ips, err := wayback.SearchSubdomains(ctx, domain, config.Timeout)
+	ips, err := wayback.SearchSubdomains(ctx, domain, t)
 	if err != nil {
 		return []string{}, fmt.Errorf("Wayback Machine search failed: %w", err)
 	}
@@ -1267,10 +1283,11 @@ func queryVirusTotal(domain string, config *core.Config) ([]string, error) {
 		return []string{}, fmt.Errorf("no VirusTotal API keys configured")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), config.Timeout)
+	t := passiveTimeout(config)
+	ctx, cancel := context.WithTimeout(context.Background(), t)
 	defer cancel()
 
-	ips, err := virustotal.SearchSubdomains(ctx, domain, config.VirusTotalKeys, config.Timeout)
+	ips, err := virustotal.SearchSubdomains(ctx, domain, config.VirusTotalKeys, t)
 	if err != nil {
 		return []string{}, fmt.Errorf("VirusTotal search failed: %w", err)
 	}
@@ -1284,10 +1301,11 @@ func queryViewDNS(domain string, config *core.Config) ([]string, error) {
 		return []string{}, fmt.Errorf("no ViewDNS API keys configured")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), config.Timeout)
+	t := passiveTimeout(config)
+	ctx, cancel := context.WithTimeout(context.Background(), t)
 	defer cancel()
 
-	ips, err := viewdns.SearchReverseIP(ctx, domain, config.ViewDNSKeys, config.Timeout)
+	ips, err := viewdns.SearchReverseIP(ctx, domain, config.ViewDNSKeys, t)
 	if err != nil {
 		return []string{}, fmt.Errorf("ViewDNS search failed: %w", err)
 	}
@@ -1301,10 +1319,11 @@ func queryDNSDumpster(domain string, config *core.Config) ([]string, error) {
 		return []string{}, fmt.Errorf("no DNSDumpster API keys configured")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), config.Timeout)
+	t := passiveTimeout(config)
+	ctx, cancel := context.WithTimeout(context.Background(), t)
 	defer cancel()
 
-	ips, err := dnsdumpster.SearchDomain(ctx, domain, config.DNSDumpsterKeys, config.Timeout)
+	ips, err := dnsdumpster.SearchDomain(ctx, domain, config.DNSDumpsterKeys, t)
 	if err != nil {
 		return []string{}, fmt.Errorf("DNSDumpster search failed: %w", err)
 	}
@@ -1344,8 +1363,8 @@ func checkForUpdatesAsync() {
 
 	if release != nil {
 		fmt.Printf("%s\n╔═══════════════════════════════════════════════════════════╗%s\n", colors.YELLOW, colors.NC)
-		fmt.Printf("%s║  🎉 New version available: v%s (current: v%s)      ║%s\n", colors.YELLOW, release.LatestVersion, version.Version, colors.NC)
-		fmt.Printf("%s║  Run: origindive --update                                ║%s\n", colors.YELLOW, colors.NC)
+		fmt.Printf("%s║  🎉 New version available: v%s (current: v%s)       ║%s\n", colors.YELLOW, release.LatestVersion, version.Version, colors.NC)
+		fmt.Printf("%s║  Run: origindive --update                                 ║%s\n", colors.YELLOW, colors.NC)
 		fmt.Printf("%s╚═══════════════════════════════════════════════════════════╝%s\n\n", colors.YELLOW, colors.NC)
 		time.Sleep(2 * time.Second) // Let user see the notification
 	}
