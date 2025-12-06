@@ -102,24 +102,32 @@ func CheckForUpdate() (*UpdateInfo, error) {
 		return nil, nil // Already up to date
 	}
 
-	// Find the appropriate asset for this platform
+	// Find the appropriate asset for this platform. Support both
+	// underscore and dash separators for backward compatibility with older releases.
 	assetName := fmt.Sprintf("origindive_%s_%s_%s", latestVersion, runtime.GOOS, runtime.GOARCH)
+	var expectedExt string
 	if runtime.GOOS == "windows" {
-		assetName += ".zip"
+		expectedExt = ".zip"
 	} else {
-		assetName += ".tar.gz"
+		expectedExt = ".tar.gz"
 	}
+	assetName = assetName + expectedExt
+
+	// Also accept a dash-separated legacy name: origindive-<version>-<os>-<arch>.<ext>
+	legacyAssetName := strings.ReplaceAll(assetName, "_", "-")
 
 	var downloadURL string
+	var matchedAsset string
 	for _, asset := range release.Assets {
-		if asset.Name == assetName {
+		if asset.Name == assetName || asset.Name == legacyAssetName {
 			downloadURL = asset.BrowserDownloadURL
+			matchedAsset = asset.Name
 			break
 		}
 	}
 
 	if downloadURL == "" {
-		return nil, fmt.Errorf("no compatible binary found for %s/%s", runtime.GOOS, runtime.GOARCH)
+		return nil, fmt.Errorf("no compatible binary found for %s/%s (checked %s and %s)", runtime.GOOS, runtime.GOARCH, assetName, legacyAssetName)
 	}
 
 	return &UpdateInfo{
@@ -128,7 +136,7 @@ func CheckForUpdate() (*UpdateInfo, error) {
 		ReleaseURL:     fmt.Sprintf("https://github.com/jhaxce/origindive/releases/tag/%s", release.TagName),
 		ReleaseNotes:   release.Body,
 		DownloadURL:    downloadURL,
-		AssetName:      assetName,
+		AssetName:      matchedAsset,
 	}, nil
 }
 

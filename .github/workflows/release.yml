@@ -37,7 +37,8 @@ jobs:
             local os=$1
             local arch=$2
             local binary_name=$3
-            local pkg_name="origindive-${VERSION}-${os}-${arch}"
+            # Use underscore-separated name to match updater expectations: origindive_<version>_<os>_<arch>
+            local pkg_name="origindive_${VERSION}_${os}_${arch}"
             
             echo "Creating package: ${pkg_name}"
             mkdir -p "build/${pkg_name}"
@@ -50,12 +51,20 @@ jobs:
             cp README.md "build/${pkg_name}/"
             cp CHANGELOG.md "build/${pkg_name}/"
             
-            # Create zip
+            # Create archive: .zip for Windows, .tar.gz for Unix-like
             cd build
-            zip -r "../dist/${pkg_name}.zip" "${pkg_name}"
+            if [ "${os}" = "windows" ]; then
+              zip -r "../dist/${pkg_name}.zip" "${pkg_name}"
+            else
+              tar -czf "../dist/${pkg_name}.tar.gz" "${pkg_name}"
+            fi
             cd ..
             
-            echo "✓ Created ${pkg_name}.zip"
+            if [ "${os}" = "windows" ]; then
+              echo "✓ Created ${pkg_name}.zip"
+            else
+              echo "✓ Created ${pkg_name}.tar.gz"
+            fi
           }
           
           # Build packages
@@ -88,16 +97,16 @@ jobs:
             Download the zip package for your platform and extract it:
             
             ### Windows
-            - **Windows 64-bit (Intel/AMD)**: `origindive-${{ steps.version.outputs.VERSION }}-windows-amd64.zip`
-            - **Windows ARM64**: `origindive-${{ steps.version.outputs.VERSION }}-windows-arm64.zip`
+            - **Windows 64-bit (Intel/AMD)**: `origindive_${{ steps.version.outputs.VERSION }}_windows_amd64.zip`
+            - **Windows ARM64**: `origindive_${{ steps.version.outputs.VERSION }}_windows_arm64.zip`
             
             ### Linux
-            - **Linux 64-bit**: `origindive-${{ steps.version.outputs.VERSION }}-linux-amd64.zip`
-            - **Linux ARM64**: `origindive-${{ steps.version.outputs.VERSION }}-linux-arm64.zip`
+            - **Linux 64-bit**: `origindive_${{ steps.version.outputs.VERSION }}_linux_amd64.tar.gz`
+            - **Linux ARM64**: `origindive_${{ steps.version.outputs.VERSION }}_linux_arm64.tar.gz`
             
             ### macOS
-            - **macOS Intel**: `origindive-${{ steps.version.outputs.VERSION }}-darwin-amd64.zip`
-            - **macOS Apple Silicon (M1/M2/M3)**: `origindive-${{ steps.version.outputs.VERSION }}-darwin-arm64.zip`
+            - **macOS Intel**: `origindive_${{ steps.version.outputs.VERSION }}_darwin_amd64.tar.gz`
+            - **macOS Apple Silicon (M1/M2/M3)**: `origindive_${{ steps.version.outputs.VERSION }}_darwin_arm64.tar.gz`
             
             Each package includes:
             - `origindive` or `origindive.exe` (binary)
@@ -109,8 +118,8 @@ jobs:
             
             ```bash
             # Extract the zip
-            unzip origindive-${{ steps.version.outputs.VERSION }}-*.zip
-            cd origindive-${{ steps.version.outputs.VERSION }}-*
+            unzip origindive_${{ steps.version.outputs.VERSION }}_*.zip
+            cd origindive_${{ steps.version.outputs.VERSION }}_*
             
             # Linux/macOS: Make executable
             chmod +x origindive
@@ -122,7 +131,7 @@ jobs:
             ## Verify Download
             
             ```bash
-            sha256sum origindive-*.zip
+            sha256sum origindive_${{ steps.version.outputs.VERSION }}_*.zip
             # Compare with checksums.txt
             ```
             
