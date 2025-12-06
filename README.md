@@ -1,13 +1,9 @@
 <div align="center">
 <h1>origindive</h1>
 
-```
-           _      _         ___         
- ___  ____(_)__ _(_)__  ___/ (_)  _____ 
-/ _ \/ __/ / _ `/ / _ \/ _  / / |/ / -_)
-\___/_/ /_/\_, /_/_//_/\_,_/_/|___/\__/ 
-          /___/                         
-```
+<source media="(prefers-color-scheme: dark)" srcset="images/origin_dark.png">
+<source media="(prefers-color-scheme: light)" srcset="images/origin_light.png">
+<img alt="origin ascii title" src="images/origin_dark.png">
 
 **Dive deep to discover origin servers** - A powerful security analysis tool for discovering real origin server IPs hidden behind CDN/WAF services through both passive reconnaissance and active scanning.
 
