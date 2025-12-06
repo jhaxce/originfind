@@ -233,37 +233,6 @@ func (f *Formatter) formatTextSummary(summary core.ScanSummary) string {
 	sb.WriteString(f.bold + "Scan Results Summary\n" + f.nc)
 	sb.WriteString(f.cyan + "═══════════════════════════════════════════════════════════════" + f.nc + "\n")
 
-	// Show verified origins (IPs without warnings) if any
-	verifiedIPs := []string{}
-	if len(summary.FalsePositiveIPs) > 0 {
-		// Build a map of false positives for quick lookup
-		falsePositiveMap := make(map[string]bool)
-		for _, ip := range summary.FalsePositiveIPs {
-			falsePositiveMap[ip] = true
-		}
-		// Find IPs that are not in false positive list
-		for _, ip := range summary.SuccessIPs {
-			if !falsePositiveMap[ip] {
-				verifiedIPs = append(verifiedIPs, ip)
-			}
-		}
-	} else {
-		// No false positives detected, all IPs are verified
-		verifiedIPs = summary.SuccessIPs
-	}
-
-	// Display verified origins first if any
-	if len(verifiedIPs) > 0 {
-		sb.WriteString(fmt.Sprintf("%s[+] Verified:%s ", f.green, f.nc))
-		for i, ip := range verifiedIPs {
-			if i > 0 {
-				sb.WriteString(", ")
-			}
-			sb.WriteString(f.green + ip + f.nc)
-		}
-		sb.WriteString("\n")
-	}
-
 	// Show all 200 OK responses
 	sb.WriteString(fmt.Sprintf("%s[+] 200 OK:%s %s%d%s", f.green, f.nc, f.green, summary.SuccessCount, f.nc))
 	if len(summary.SuccessIPs) > 0 {

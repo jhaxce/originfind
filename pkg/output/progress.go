@@ -98,6 +98,11 @@ func (p *Progress) Stop() {
 	atomic.StoreUint32(p.stopped, 1)
 }
 
+// IsRunning returns true if progress display is still running
+func (p *Progress) IsRunning() bool {
+	return atomic.LoadUint32(p.stopped) == 0
+}
+
 // render displays the current progress state
 func (p *Progress) render() {
 	if !p.enabled {

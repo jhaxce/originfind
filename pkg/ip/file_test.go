@@ -191,10 +191,10 @@ func TestParseInputFile_ValidRanges(t *testing.T) {
 		t.Errorf("Single IP should have Start == End")
 	}
 
-	// Test CIDR (192.168.1.0/30 = 2 usable IPs, excluding network and broadcast)
+	// Test CIDR (192.168.1.0/30 = 4 IPs including network and broadcast)
 	cidrCount := ranges[1].Count()
-	if cidrCount != 2 {
-		t.Errorf("CIDR /30 got %d IPs, want 2", cidrCount)
+	if cidrCount != 4 {
+		t.Errorf("CIDR /30 got %d IPs, want 4", cidrCount)
 	}
 
 	// Test IP range (10.0.0.1-10.0.0.5 = 5 IPs)

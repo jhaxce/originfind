@@ -129,19 +129,22 @@ func ParseCIDRRange(cidr string) (*IPRange, error) {
 
 	var first, last uint32
 
-	if ones < 31 {
-		// Standard subnet: skip network and broadcast addresses
-		first = networkInt + 1
-		broadcast := networkInt | ^ToUint32FromMask(network.Mask)
-		last = broadcast - 1
+	// For origin IP discovery, we want to scan ALL IPs in the range
+	// including network and broadcast addresses, as they may respond
+	// in cloud environments (AWS, Azure, etc.) or misconfigured networks
+	if ones == 32 {
+		// /32 single host
+		first = networkInt
+		last = networkInt
 	} else if ones == 31 {
 		// /31 point-to-point: both IPs usable (RFC 3021)
 		first = networkInt
 		last = networkInt + 1
 	} else {
-		// /32 single host
+		// All other subnets: scan entire range including network and broadcast
+		broadcast := networkInt | ^ToUint32FromMask(network.Mask)
 		first = networkInt
-		last = networkInt
+		last = broadcast
 	}
 
 	return &IPRange{Start: first, End: last}, nil

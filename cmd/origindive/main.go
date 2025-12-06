@@ -251,6 +251,11 @@ func main() {
 		s.SetProgressCallback(func(scanned, _ uint64) {
 			prog.Update(scanned)
 		})
+
+		// Set progress stopper so scanner can stop it before validation
+		s.SetProgressStopper(func() {
+			prog.Stop()
+		})
 	}
 
 	// Perform scan
@@ -261,10 +266,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Stop progress display
-	if prog != nil {
+	// Stop progress display if not already stopped (validation stops it early)
+	if prog != nil && prog.IsRunning() {
 		prog.Stop()
-		time.Sleep(200 * time.Millisecond) // Let display goroutine finish
+		time.Sleep(150 * time.Millisecond) // Let display goroutine finish
 		fmt.Println()                      // Blank line after progress bar
 	}
 
@@ -1085,10 +1090,10 @@ func queryPassiveSource(source string, config *core.Config) ([]string, error) {
 	switch strings.ToLower(source) {
 	case "ct":
 		// Certificate Transparency logs (free)
-		return queryCertificateTransparency(config.Domain)
+		return queryCertificateTransparency(config.Domain, config)
 	case "dns":
 		// DNS history (free via public resolvers)
-		return queryDNSHistory(config.Domain)
+		return queryDNSHistory(config.Domain, config)
 	case "shodan":
 		// Shodan API (requires key)
 		return queryShodan(config.Domain, config)
@@ -1119,11 +1124,11 @@ func queryPassiveSource(source string, config *core.Config) ([]string, error) {
 }
 
 // queryCertificateTransparency searches CT logs for domain certificates
-func queryCertificateTransparency(domain string) ([]string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+func queryCertificateTransparency(domain string, config *core.Config) ([]string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), config.Timeout)
 	defer cancel()
 
-	ips, err := ct.SearchCrtSh(ctx, domain, 10*time.Second)
+	ips, err := ct.SearchCrtSh(ctx, domain, config.Timeout)
 	if err != nil {
 		return []string{}, fmt.Errorf("CT search failed: %w", err)
 	}
@@ -1132,13 +1137,13 @@ func queryCertificateTransparency(domain string) ([]string, error) {
 }
 
 // queryDNSHistory queries DNS history and MX records for the domain
-func queryDNSHistory(domain string) ([]string, error) {
+func queryDNSHistory(domain string, config *core.Config) ([]string, error) {
 	var allIPs []string
 
 	// Phase 1: Subdomain enumeration
 	fmt.Printf("  → Enumerating subdomains...\n")
-	subScanner := subdomain.NewScanner(domain, 20, 3*time.Second)
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	subScanner := subdomain.NewScanner(domain, 20, config.Timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), config.Timeout*4)
 	defer cancel()
 
 	subResults, err := subScanner.Scan(ctx, subdomain.CommonSubdomains)
@@ -1150,7 +1155,7 @@ func queryDNSHistory(domain string) ([]string, error) {
 
 	// Phase 2: MX record analysis
 	fmt.Printf("  → Analyzing MX records...\n")
-	mxRecords, err := passivedns.LookupMX(ctx, domain, 5*time.Second)
+	mxRecords, err := passivedns.LookupMX(ctx, domain, config.Timeout)
 	if err == nil && len(mxRecords) > 0 {
 		mxIPs := passivedns.GetAllMXIPs(mxRecords)
 		fmt.Printf("  → Found %d IPs from %d MX records\n", len(mxIPs), len(mxRecords))
@@ -1180,10 +1185,10 @@ func queryShodan(domain string, config *core.Config) ([]string, error) {
 		return []string{}, fmt.Errorf("no Shodan API keys configured")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), config.Timeout)
 	defer cancel()
 
-	ips, err := shodan.SearchHostname(ctx, domain, config.ShodanKeys, 15*time.Second)
+	ips, err := shodan.SearchHostname(ctx, domain, config.ShodanKeys, config.Timeout)
 	if err != nil {
 		return []string{}, fmt.Errorf("Shodan search failed: %w", err)
 	}
@@ -1197,10 +1202,10 @@ func queryCensys(domain string, config *core.Config) ([]string, error) {
 		return []string{}, fmt.Errorf("no Censys PAT tokens configured")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), config.Timeout)
 	defer cancel()
 
-	ips, err := censys.SearchHosts(ctx, domain, config.CensysTokens, config.CensysOrgID, 15*time.Second)
+	ips, err := censys.SearchHosts(ctx, domain, config.CensysTokens, config.CensysOrgID, config.Timeout)
 	if err != nil {
 		return []string{}, fmt.Errorf("Censys search failed: %w", err)
 	}
@@ -1214,10 +1219,10 @@ func querySecurityTrails(domain string, config *core.Config) ([]string, error) {
 		return []string{}, fmt.Errorf("no SecurityTrails API keys configured")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), config.Timeout)
 	defer cancel()
 
-	ips, err := securitytrails.SearchSubdomainsAndHistory(ctx, domain, config.SecurityTrailsKeys, 20*time.Second)
+	ips, err := securitytrails.SearchSubdomainsAndHistory(ctx, domain, config.SecurityTrailsKeys, config.Timeout)
 	if err != nil {
 		return []string{}, fmt.Errorf("SecurityTrails search failed: %w", err)
 	}
@@ -1231,10 +1236,10 @@ func queryZoomEye(domain string, config *core.Config) ([]string, error) {
 		return []string{}, fmt.Errorf("no ZoomEye API keys configured")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), config.Timeout)
 	defer cancel()
 
-	ips, err := zoomeye.SearchHost(ctx, domain, config.ZoomEyeKeys, 30*time.Second)
+	ips, err := zoomeye.SearchHost(ctx, domain, config.ZoomEyeKeys, config.Timeout)
 	if err != nil {
 		return []string{}, fmt.Errorf("ZoomEye search failed: %w", err)
 	}
@@ -1245,10 +1250,10 @@ func queryZoomEye(domain string, config *core.Config) ([]string, error) {
 // queryWayback searches the Wayback Machine CDX API for historical subdomains
 func queryWayback(domain string, config *core.Config) ([]string, error) {
 	// Wayback Machine is free - no API key needed
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), config.Timeout)
 	defer cancel()
 
-	ips, err := wayback.SearchSubdomains(ctx, domain, 60*time.Second)
+	ips, err := wayback.SearchSubdomains(ctx, domain, config.Timeout)
 	if err != nil {
 		return []string{}, fmt.Errorf("Wayback Machine search failed: %w", err)
 	}
@@ -1262,10 +1267,10 @@ func queryVirusTotal(domain string, config *core.Config) ([]string, error) {
 		return []string{}, fmt.Errorf("no VirusTotal API keys configured")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), config.Timeout)
 	defer cancel()
 
-	ips, err := virustotal.SearchSubdomains(ctx, domain, config.VirusTotalKeys, 30*time.Second)
+	ips, err := virustotal.SearchSubdomains(ctx, domain, config.VirusTotalKeys, config.Timeout)
 	if err != nil {
 		return []string{}, fmt.Errorf("VirusTotal search failed: %w", err)
 	}
@@ -1279,10 +1284,10 @@ func queryViewDNS(domain string, config *core.Config) ([]string, error) {
 		return []string{}, fmt.Errorf("no ViewDNS API keys configured")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), config.Timeout)
 	defer cancel()
 
-	ips, err := viewdns.SearchReverseIP(ctx, domain, config.ViewDNSKeys, 30*time.Second)
+	ips, err := viewdns.SearchReverseIP(ctx, domain, config.ViewDNSKeys, config.Timeout)
 	if err != nil {
 		return []string{}, fmt.Errorf("ViewDNS search failed: %w", err)
 	}
@@ -1296,10 +1301,10 @@ func queryDNSDumpster(domain string, config *core.Config) ([]string, error) {
 		return []string{}, fmt.Errorf("no DNSDumpster API keys configured")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), config.Timeout)
 	defer cancel()
 
-	ips, err := dnsdumpster.SearchDomain(ctx, domain, config.DNSDumpsterKeys, 30*time.Second)
+	ips, err := dnsdumpster.SearchDomain(ctx, domain, config.DNSDumpsterKeys, config.Timeout)
 	if err != nil {
 		return []string{}, fmt.Errorf("DNSDumpster search failed: %w", err)
 	}

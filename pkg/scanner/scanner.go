@@ -35,6 +35,7 @@ type Scanner struct {
 	cancelFunc       context.CancelFunc
 	progressCallback func(scanned, total uint64) // Progress update callback
 	resultCallback   func(result *core.IPResult) // Real-time result callback
+	progressStopper  func()                      // Function to stop progress display
 }
 
 // New creates a new scanner with the given configuration
@@ -286,10 +287,17 @@ func (s *Scanner) Scan(ctx context.Context) (*core.ScanResult, error) {
 	// Wait for collector
 	collectorWg.Wait()
 
-	// Validate successful IPs if redirect following is enabled
+	// Validate successful IPs if both --verify and --follow-redirect are enabled
 	// This checks if IPs behave the same without Host header (detects shared hosting)
-	if s.config.MaxRedirects > 0 && len(result.Success) > 0 {
-		fmt.Println("\n[*] Validating successful IPs without Host header...")
+	if s.config.VerifyContent && s.config.MaxRedirects > 0 && len(result.Success) > 0 {
+		// Stop progress bar before validation to prevent double display
+		if s.progressStopper != nil {
+			s.progressStopper()
+			time.Sleep(150 * time.Millisecond) // Let display goroutine finish
+			fmt.Println()                      // Blank line after progress bar
+		}
+
+		fmt.Println("[*] Verifying redirect behavior without Host header (this may take a moment)...")
 		falsePositiveIPs := s.validateSuccessfulIPs(ctx, result.Success)
 		if len(falsePositiveIPs) > 0 {
 			result.Summary.FalsePositiveCount = uint64(len(falsePositiveIPs))
@@ -659,6 +667,11 @@ func (s *Scanner) Stop() {
 // SetProgressCallback sets a callback function for progress updates
 func (s *Scanner) SetProgressCallback(callback func(scanned, total uint64)) {
 	s.progressCallback = callback
+}
+
+// SetProgressStopper sets a function to stop progress display
+func (s *Scanner) SetProgressStopper(stopper func()) {
+	s.progressStopper = stopper
 }
 
 // SetResultCallback sets a callback for real-time result streaming

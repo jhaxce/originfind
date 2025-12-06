@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.2.1] - 2025-12-06
+
+### Fixed
+- Fixed validation triggering on `--follow-redirect` instead of requiring both `--verify` and `--follow-redirect`
+- Fixed double progress bar issue during validation phase
+- Fixed CIDR expansion to scan all IPs including network and broadcast addresses (important for cloud environments)
+- Removed redundant "Verified:" line from summary output
+
+### Changed
+- Passive reconnaissance now respects `-t` timeout flag instead of hardcoded values
+- DNS subdomain enumeration timeout adjusted to `4 × timeout` for thorough scanning
+- Validation now properly stops progress bar before running to prevent visual glitches
+
 ## [3.2.0] - 2025-12-05
 
 ### 🔍 Smart Redirect Following & False Positive Detection
