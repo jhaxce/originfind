@@ -79,8 +79,8 @@ func SearchHost(ctx context.Context, domain string, apiKeys []string, timeout ti
 
 // searchWithKey performs the search with a single API key
 func searchWithKey(ctx context.Context, domain, apiKey string, timeout time.Duration) ([]string, error) {
-	// Build query: hostname="domain.com" and encode with base64
-	query := fmt.Sprintf(`hostname="%s"`, domain)
+	// Build query: ssl.cert.subject.cn="domain.com" and encode with base64
+	query := fmt.Sprintf(`ssl.cert.subject.cn="%s"`, domain)
 	encodedQuery := base64.StdEncoding.EncodeToString([]byte(query))
 
 	// Create POST request body for v2 API

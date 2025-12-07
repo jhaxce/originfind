@@ -537,6 +537,10 @@ func (s *Scanner) scanIP(ctx context.Context, ipAddr net.IP) *core.IPResult {
 						} else if strings.HasPrefix(naturalHost, "https://") {
 							naturalHost = naturalHost[8:]
 						}
+						// If hostname has a leading www., strip it for comparison
+						if idx := strings.Index(naturalHost, "www."); idx > 0 {
+							naturalHost = naturalHost[4:]
+						}
 						// Extract just the hostname part
 						if idx := strings.Index(naturalHost, "/"); idx > 0 {
 							naturalHost = naturalHost[:idx]
@@ -564,6 +568,8 @@ func (s *Scanner) scanIP(ctx context.Context, ipAddr net.IP) *core.IPResult {
 					redirectedDomain := req.URL.Host
 					req.URL.Host = originalIP
 					req.Host = redirectedDomain // Keep Host header as redirected domain
+					// Remove Referer to avoid leaking the original IP in redirected requests
+					req.Header.Del("Referer")
 				}
 
 				// Check if we've exceeded the max redirects
@@ -761,6 +767,8 @@ func (s *Scanner) validateSuccessfulIPs(ctx context.Context, successIPs []*core.
 			originalIP := via[0].URL.Host
 			req.URL.Host = originalIP
 			// DON'T set req.Host - that's the key difference from main scan
+			// Remove Referer to avoid leaking the previous destination/IP
+			req.Header.Del("Referer")
 
 			return nil
 		},
@@ -796,7 +804,7 @@ func (s *Scanner) validateSuccessfulIPs(ctx context.Context, successIPs []*core.
 							h := sha256.Sum256(body)
 							hashStr := hex.EncodeToString(h[:])[:16]
 							if hashStr == ipResult.BodyHash {
-								originNote := fmt.Sprintf("Possible origin IP: %s (content match)", ipResult.IP)
+								originNote := fmt.Sprintf("Possible origin IP (Unrelated): %s (content match)", ipResult.IP)
 								ipResult.RedirectChain = append(ipResult.RedirectChain, originNote)
 								ipResult.PossibleOrigin = true
 								ipResult.PossibleOriginDest = ""
@@ -804,8 +812,9 @@ func (s *Scanner) validateSuccessfulIPs(ctx context.Context, successIPs []*core.
 								note := fmt.Sprintf("Note: Without Host header: content differs from Host-based response (but still possible)")
 								ipResult.RedirectChain = append(ipResult.RedirectChain, note)
 								// Treat ambiguous 'Note' cases as related possible origins
-								ipResult.PossibleOrigin = true
-								ipResult.PossibleOriginDest = s.config.Domain
+								// Add grab the value if the domain has waf then approve thiss line
+								// ipResult.PossibleOrigin = true
+								// ipResult.PossibleOriginDest = s.config.Domain
 							}
 						}
 					}
@@ -968,6 +977,10 @@ func extractHost(urlStr string) string {
 	// Remove protocol
 	if idx := strings.Index(host, "://"); idx > 0 {
 		host = host[idx+3:]
+	}
+	// Strip leading www. for normalized comparisons
+	if idx := strings.Index(host, "://"); idx > 0 {
+		host = host[idx+4:]
 	}
 	// Remove path
 	if idx := strings.Index(host, "/"); idx > 0 {

@@ -1,5 +1,6 @@
 <div align="center">
-<h1>origindive</h1>
+
+# origindive
 
 ![origindive ascii title](images/origindive_light.png#gh-light-mode-only)
 ![origindive ascii title](images/origindive_dark.png#gh-dark-mode-only)
@@ -33,7 +34,7 @@
 
 ## 🎯 Overview
 
-**origindive** (formerly originfind) helps security researchers and penetration testers discover the real IP addresses of web servers that are protected by Content Delivery Networks (CDN) or Web Application Firewalls (WAF). 
+**origindive** helps security researchers and penetration testers discover the real IP addresses of web servers that are protected by Content Delivery Networks (CDN) or Web Application Firewalls (WAF). 
 
 ### Key Capabilities
 
@@ -246,10 +247,7 @@ origindive -d example.com -n 23.0.0.0/16 --skip-waf -j 20
 origindive -d example.com -i ips.txt --skip-waf
 
 # Scrape a file for IPs and use them as input
-```bash
-# Scrape `eulap-ips.json` for IPv4 addresses, write `example.com-ips.txt`, then scan
 origindive -d example.com --input-scrape eulap-ips.json
-```
 
 # Use random browser user agent
 origindive -d example.com -n 192.168.1.0/24 -A random
@@ -1099,7 +1097,6 @@ Contributions welcome! Please read [CONTRIBUTING.md](.github/CONTRIBUTING.md).
 
 MIT License - see [LICENSE](LICENSE) for details.
 
-
 [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fjhaxce%2Forigindive.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2Fjhaxce%2Forigindive?ref=badge_large)
 
 ## 🙏 Acknowledgments
@@ -1110,6 +1107,6 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 ---
 
-**Made with ❤️ by [jhaxce](https://github.com/jhaxce)**
+**Made with 💖 by [jhaxce](https://github.com/jhaxce)**
 
 For issues and feature requests: https://github.com/jhaxce/origindive/issues

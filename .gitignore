@@ -54,6 +54,9 @@ dist/
 # AI generated files
 copilot-instructions.md
 
+# Documentation
+docs/
+
 # Scripts
 scripts/
 

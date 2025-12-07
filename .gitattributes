@@ -1,0 +1,18 @@
+# Force LF in the repo for common text files
+* text=auto
+
+# Ensure LF stored for code, docs, JSON, YAML
+*.go text eol=lf
+*.md  text eol=lf
+*.txt text eol=lf
+*.json text eol=lf
+*.yml  text eol=lf
+*.yaml text eol=lf
+*.sh  text eol=lf
+
+# Ensure CRLF for Windows batch and PowerShell scripts
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+
+# Mark binary files
+*.png binary
